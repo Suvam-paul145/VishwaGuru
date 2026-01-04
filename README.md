@@ -148,11 +148,31 @@ See detailed guides:
 
 ## Contributing
 
+We welcome contributions from everyone! VishwaGuru is participating in **ECWoC26 (Elite Coders Winter of Code 2026)**.
+
+### 🎉 ECWoC26 Contributors
+
+Looking to contribute? Check out our [ECWoC26 Issues](./ECWOC26_ISSUES.md) for:
+- 🟢 **Good First Issues** for beginners
+- 🟡 **Intermediate Issues** for those with some experience
+- 🔴 **Advanced Issues** for experienced developers
+
+**Quick Start:**
+1. Browse issues labeled with [`ECWoC26`](https://github.com/RohanExploit/VishwaGuru/labels/ECWoC26)
+2. Comment on an issue you'd like to work on
+3. Wait for assignment
+4. Fork and create your feature branch
+5. Submit a PR using our [PR template](./.github/PULL_REQUEST_TEMPLATE.md)
+
+### General Contribution Process
+
 1.  Fork the repository.
 2.  Create a new branch (`git checkout -b feature/YourFeature`).
 3.  Commit your changes (`git commit -m 'Add some feature'`).
 4.  Push to the branch (`git push origin feature/YourFeature`).
 5.  Open a Pull Request.
+
+For detailed guidelines, see our contributing guide (coming soon!).
 
 ## License
 

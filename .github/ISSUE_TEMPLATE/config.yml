@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/RohanExploit/VishwaGuru/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📖 Documentation
+    url: https://github.com/RohanExploit/VishwaGuru/blob/main/README.md
+    about: Read the project documentation
+  - name: 🎉 ECWoC26 Issues List
+    url: https://github.com/RohanExploit/VishwaGuru/blob/main/ECWOC26_ISSUES.md
+    about: View all ECWoC26 issue ideas and templates
