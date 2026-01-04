@@ -109,7 +109,7 @@ Add a Code of Conduct to establish community standards and create a welcoming en
 - Markdown
 - Understanding of community management
 
-**Reference:** This partially addresses existing issue #57
+**Reference:** This partially addresses the existing issue #57
 
 ---
 
@@ -138,7 +138,7 @@ Replace all `print()` statements throughout the backend codebase with proper log
 - Understanding of log levels and when to use each
 - Experience with FastAPI
 
-**Reference:** This addresses existing issue #67
+**Reference:** This addresses the existing issue #67
 
 ---
 
@@ -171,7 +171,7 @@ Implement comprehensive input validation for all file upload endpoints to preven
 - python-magic library
 - Security best practices
 
-**Reference:** This addresses existing issue #65
+**Reference:** This addresses the existing issue #65
 
 ---
 
@@ -201,7 +201,7 @@ Implement robust error handling for AI service API calls with retry logic, expon
 - Understanding of rate limits and API failures
 - pytest for testing
 
-**Reference:** This addresses existing issue #70
+**Reference:** This addresses the existing issue #70
 
 ---
 
@@ -249,7 +249,7 @@ Implement a dark mode toggle in the frontend that persists user preference acros
 - localStorage API
 - CSS/design skills
 
-**Reference:** This is part of issue #60
+**Reference:** This is part of the issue #60
 
 ---
 
@@ -606,7 +606,7 @@ Build an interactive map showing civic issues reported across India with heatmap
 - Map performance optimization
 - API integration for issue data
 
-**Reference:** This addresses existing issue #59
+**Reference:** This addresses the existing issue #59
 
 ---
 
@@ -660,7 +660,7 @@ Create a local machine learning model for civic issue classification (pothole, g
 - Model optimization
 - ML deployment patterns
 
-**Reference:** This addresses existing issue #76
+**Reference:** This addresses the existing issue #76
 
 ---
 

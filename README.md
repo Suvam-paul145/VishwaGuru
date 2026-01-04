@@ -172,7 +172,7 @@ Looking to contribute? Check out our [ECWoC26 Issues](./ECWOC26_ISSUES.md) for:
 4.  Push to the branch (`git push origin feature/YourFeature`).
 5.  Open a Pull Request.
 
-For detailed guidelines, see our contributing guide (coming soon!).
+For detailed guidelines, check out the ECWoC26 issues - particularly Issue #1 which will establish formal contributing guidelines.
 
 ## License
 
