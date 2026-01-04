@@ -148,6 +148,17 @@ See detailed guides:
 
 ## Contributing
 
+We welcome contributions from developers of all skill levels!
+
+### ECWoC26 Participants
+
+Participating in Elite Coders Winter of Code 2026? Check out our [ECWoC26 Guide](./ECWOC26_README.md) for:
+- 🎯 10 highly complex technical challenges
+- 📚 Detailed documentation and templates
+- 🚀 Getting started guide
+
+### General Contributors
+
 1.  Fork the repository.
 2.  Create a new branch (`git checkout -b feature/YourFeature`).
 3.  Commit your changes (`git commit -m 'Add some feature'`).
