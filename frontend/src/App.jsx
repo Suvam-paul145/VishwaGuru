@@ -15,6 +15,10 @@ const GarbageDetector = React.lazy(() => import('./GarbageDetector'));
 const VandalismDetector = React.lazy(() => import('./VandalismDetector'));
 const FloodDetector = React.lazy(() => import('./FloodDetector'));
 const InfrastructureDetector = React.lazy(() => import('./InfrastructureDetector'));
+const StrayAnimalDetector = React.lazy(() => import('./StrayAnimalDetector'));
+const FireDetector = React.lazy(() => import('./FireDetector'));
+const TrafficDetector = React.lazy(() => import('./TrafficDetector'));
+const NoiseDetector = React.lazy(() => import('./NoiseDetector'));
 
 // Get API URL from environment variable, fallback to relative URL for local dev
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -167,6 +171,18 @@ function App() {
           )}
           {view === 'infrastructure' && (
              <InfrastructureDetector onBack={() => setView('home')} />
+          )}
+          {view === 'stray-animal' && (
+             <StrayAnimalDetector onBack={() => setView('home')} />
+          )}
+          {view === 'fire' && (
+             <FireDetector onBack={() => setView('home')} />
+          )}
+          {view === 'traffic' && (
+             <TrafficDetector onBack={() => setView('home')} />
+          )}
+          {view === 'noise' && (
+             <NoiseDetector onBack={() => setView('home')} />
           )}
         </Suspense>
 

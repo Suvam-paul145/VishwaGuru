@@ -129,3 +129,96 @@ async def detect_flooding_clip(image: Image.Image):
     except Exception as e:
         print(f"HF Detection Error: {e}")
         return []
+
+async def detect_stray_animal_clip(image: Image.Image):
+    """
+    Detects stray animals using Zero-Shot Image Classification with CLIP (Async).
+    """
+    try:
+        labels = ["stray dog", "stray cat", "cow on road", "monkey", "domestic animal", "empty street", "normal road"]
+
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
+        img_bytes = img_byte_arr.getvalue()
+
+        results = await query_hf_api(img_bytes, labels)
+
+        if not isinstance(results, list):
+             return []
+
+        animal_labels = ["stray dog", "stray cat", "cow on road", "monkey"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in animal_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
+
+async def detect_fire_clip(image: Image.Image):
+    """
+    Detects fire/smoke using Zero-Shot Image Classification with CLIP (Async).
+    """
+    try:
+        labels = ["fire", "smoke", "forest fire", "flames", "safe environment", "normal street"]
+
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
+        img_bytes = img_byte_arr.getvalue()
+
+        results = await query_hf_api(img_bytes, labels)
+
+        if not isinstance(results, list):
+             return []
+
+        fire_labels = ["fire", "smoke", "forest fire", "flames"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in fire_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
+
+async def detect_traffic_clip(image: Image.Image):
+    """
+    Detects traffic violations/issues using Zero-Shot Image Classification with CLIP (Async).
+    """
+    try:
+        labels = ["traffic jam", "car accident", "blocked road", "clear road", "normal traffic", "wrong way driving"]
+
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
+        img_bytes = img_byte_arr.getvalue()
+
+        results = await query_hf_api(img_bytes, labels)
+
+        if not isinstance(results, list):
+             return []
+
+        traffic_labels = ["traffic jam", "car accident", "blocked road", "wrong way driving"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in traffic_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
