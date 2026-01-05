@@ -1,7 +1,11 @@
 import React from 'react';
+import { useLocation, Link } from 'react-router-dom';
 
-const ActionView = ({ actionPlan, setView }) => {
-  if (!actionPlan) return null;
+const ActionView = () => {
+  const location = useLocation();
+  const actionPlan = location.state?.actionPlan;
+
+  if (!actionPlan) return <div className="text-center mt-10">No action plan found. <Link to="/" className="text-blue-600">Go Home</Link></div>;
 
   return (
     <div className="mt-6 space-y-6">
@@ -43,7 +47,7 @@ const ActionView = ({ actionPlan, setView }) => {
         </a>
       </div>
 
-      <button onClick={() => setView('home')} className="text-blue-600 underline text-center w-full block">Back to Home</button>
+      <Link to="/" className="text-blue-600 underline text-center w-full block">Back to Home</Link>
     </div>
   );
 };

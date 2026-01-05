@@ -1,91 +1,92 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap } from 'lucide-react';
 
-const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => (
+const Home = ({ recentIssues, handleUpvote }) => (
   <div className="space-y-6">
     {/* Quick Actions Grid */}
     <div className="grid grid-cols-2 gap-4">
-      <button
-        onClick={() => setView('report')}
+      <Link
+        to="/report"
         className="flex flex-col items-center justify-center bg-blue-50 border-2 border-blue-100 p-4 rounded-xl hover:bg-blue-100 transition shadow-sm h-32"
       >
         <div className="bg-blue-500 text-white p-3 rounded-full mb-2">
           <AlertTriangle size={24} />
         </div>
         <span className="font-semibold text-blue-800">Report Issue</span>
-      </button>
+      </Link>
 
-      <button
-        onClick={() => setView('pothole')}
+      <Link
+        to="/pothole"
         className="flex flex-col items-center justify-center bg-red-50 border-2 border-red-100 p-4 rounded-xl hover:bg-red-100 transition shadow-sm h-32"
       >
         <div className="bg-red-500 text-white p-3 rounded-full mb-2">
           <Camera size={24} />
         </div>
         <span className="font-semibold text-red-800">Detect Pothole</span>
-      </button>
+      </Link>
 
-      <button
-        onClick={() => setView('garbage')}
+      <Link
+        to="/garbage"
         className="flex flex-col items-center justify-center bg-orange-50 border-2 border-orange-100 p-4 rounded-xl hover:bg-orange-100 transition shadow-sm h-32"
       >
         <div className="bg-orange-500 text-white p-3 rounded-full mb-2">
           <Trash2 size={24} />
         </div>
         <span className="font-semibold text-orange-800">Detect Garbage</span>
-      </button>
+      </Link>
 
-      <button
-        onClick={() => setView('mh-rep')}
+      <Link
+        to="/mh-rep"
         className="flex flex-col items-center justify-center bg-purple-50 border-2 border-purple-100 p-4 rounded-xl hover:bg-purple-100 transition shadow-sm h-32"
       >
         <div className="bg-purple-500 text-white p-3 rounded-full mb-2">
           <Search size={24} />
         </div>
         <span className="font-semibold text-purple-800">Find MLA</span>
-      </button>
+      </Link>
 
-      <button
-        onClick={() => setView('vandalism')}
+      <Link
+        to="/vandalism"
         className="flex flex-col items-center justify-center bg-indigo-50 border-2 border-indigo-100 p-4 rounded-xl hover:bg-indigo-100 transition shadow-sm h-32"
       >
         <div className="bg-indigo-500 text-white p-3 rounded-full mb-2">
           <Brush size={24} />
         </div>
         <span className="font-semibold text-indigo-800">Report Graffiti</span>
-      </button>
+      </Link>
 
-      <button
-        onClick={() => setView('flood')}
+      <Link
+        to="/flood"
         className="flex flex-col items-center justify-center bg-cyan-50 border-2 border-cyan-100 p-4 rounded-xl hover:bg-cyan-100 transition shadow-sm h-32"
       >
         <div className="bg-cyan-500 text-white p-3 rounded-full mb-2">
           <Droplets size={24} />
         </div>
         <span className="font-semibold text-cyan-800">Detect Flood</span>
-      </button>
+      </Link>
 
-      <button
-        onClick={() => setView('infrastructure')}
+      <Link
+        to="/infrastructure"
         className="flex flex-col items-center justify-center bg-yellow-50 border-2 border-yellow-100 p-4 rounded-xl hover:bg-yellow-100 transition shadow-sm h-32"
       >
         <div className="bg-yellow-500 text-white p-3 rounded-full mb-2">
           <Zap size={24} />
         </div>
         <span className="font-semibold text-yellow-800">Broken Infra</span>
-      </button>
+      </Link>
     </div>
 
     <div className="grid grid-cols-1 mt-4">
-       <button
-        onClick={fetchResponsibilityMap}
+       <Link
+        to="/map"
         className="flex flex-row items-center justify-center bg-green-50 border-2 border-green-100 p-4 rounded-xl hover:bg-green-100 transition shadow-sm h-16"
       >
         <div className="bg-green-500 text-white p-2 rounded-full mr-3">
           <MapPin size={20} />
         </div>
         <span className="font-semibold text-green-800">Who is Responsible?</span>
-      </button>
+      </Link>
     </div>
 
     {/* Recent Activity Feed */}

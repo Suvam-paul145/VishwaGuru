@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Get API URL from environment variable, fallback to relative URL for local dev
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) => {
+const ReportForm = () => {
   const [formData, setFormData] = useState({ description: '', category: 'road', image: null });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,8 +31,8 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
       if (!response.ok) throw new Error('Failed to submit issue');
 
       const data = await response.json();
-      setActionPlan(data.action_plan);
-      setView('action');
+      // Pass action plan via state
+      navigate('/action', { state: { actionPlan: data.action_plan } });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -39,6 +43,7 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
   return (
     <div className="mt-6">
        <h2 className="text-xl font-semibold mb-4 text-center">Report an Issue</h2>
+       {error && <div className="text-red-500 mb-2">{error}</div>}
        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Category</label>
@@ -85,7 +90,7 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
           >
             {loading ? 'Analyzing...' : 'Generate Action Plan'}
           </button>
-          <button type="button" onClick={() => setView('home')} className="mt-2 text-blue-600 underline text-center w-full block">Cancel</button>
+          <button type="button" onClick={() => navigate('/')} className="mt-2 text-blue-600 underline text-center w-full block">Cancel</button>
        </form>
     </div>
   );

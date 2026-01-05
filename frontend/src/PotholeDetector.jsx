@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const PotholeDetector = ({ onBack }) => {
+const PotholeDetector = () => {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [isDetecting, setIsDetecting] = useState(false);
@@ -184,12 +185,12 @@ const PotholeDetector = ({ onBack }) => {
                 Point your camera at the road. Detections will be highlighted in real-time.
             </p>
 
-            <button
-                onClick={onBack}
+            <Link
+                to="/"
                 className="mt-6 text-gray-600 hover:text-gray-900 underline"
             >
                 Back to Home
-            </button>
+            </Link>
         </div>
     );
 };

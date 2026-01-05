@@ -161,7 +161,7 @@ async def create_issue(
             # Offload blocking file I/O to threadpool
             await run_in_threadpool(save_file_blocking, image.file, image_path)
 
-        # Save to DB
+        # Save to DB first (without action plan) to ensure data persistence
         new_issue = Issue(
             description=description,
             category=category,
@@ -174,7 +174,18 @@ async def create_issue(
         await run_in_threadpool(save_issue_db, db, new_issue)
 
         # Generate Action Plan (AI)
-        action_plan = await generate_action_plan(description, category, image_path)
+        try:
+            action_plan = await generate_action_plan(description, category, image_path)
+
+            # Update issue with action plan
+            new_issue.action_plan = action_plan
+            db.add(new_issue)
+            await run_in_threadpool(db.commit) # Commit in threadpool
+
+        except Exception as e:
+            logger.error(f"Error generating action plan: {e}")
+            action_plan = "Action plan generation failed. Please try again later."
+            # We don't fail the request, just return the issue without a perfect plan
 
         return {
             "id": new_issue.id,
@@ -248,7 +259,8 @@ def get_recent_issues(db: Session = Depends(get_db)):
             "created_at": i.created_at,
             "image_path": i.image_path,
             "status": i.status,
-            "upvotes": i.upvotes if i.upvotes is not None else 0
+            "upvotes": i.upvotes if i.upvotes is not None else 0,
+            "action_plan": i.action_plan
         }
         for i in issues
     ]

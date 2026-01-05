@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
+import { Link } from 'react-router-dom';
 import { Camera, X, AlertTriangle, CheckCircle, Droplets } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -136,6 +137,8 @@ const FloodDetector = () => {
           {error}
         </div>
       )}
+
+      <Link to="/" className="mt-6 text-blue-600 underline text-center w-full block">Back to Home</Link>
     </div>
   );
 };

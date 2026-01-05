@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getMaharashtraRepContacts } from '../api/location';
 
-const MaharashtraRepView = ({ setView, setLoading, setError, setMaharashtraRepInfo, maharashtraRepInfo, loading }) => {
+const MaharashtraRepView = () => {
   const [pincode, setPincode] = useState('');
   const [localError, setLocalError] = useState(null);
+  const [maharashtraRepInfo, setMaharashtraRepInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleLookup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setLocalError(null);
-    setError(null);
 
     try {
       const data = await getMaharashtraRepContacts(pincode);
@@ -60,13 +62,12 @@ const MaharashtraRepView = ({ setView, setLoading, setError, setMaharashtraRepIn
             {loading ? 'Looking up...' : 'Find My Representatives'}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setView('home')}
+          <Link
+            to="/"
             className="mt-2 text-blue-600 underline text-center w-full block"
           >
             Cancel
-          </button>
+          </Link>
         </form>
       ) : (
         <div className="space-y-4">
@@ -141,16 +142,16 @@ const MaharashtraRepView = ({ setView, setLoading, setError, setMaharashtraRepIn
             </p>
           </div>
 
-          <button
+          <Link
+            to="/"
             onClick={() => {
               setMaharashtraRepInfo(null);
               setPincode('');
-              setView('home');
             }}
             className="text-blue-600 underline text-center w-full block"
           >
             Back to Home
-          </button>
+          </Link>
         </div>
       )}
     </div>

@@ -1,10 +1,11 @@
 import React, { useRef, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
+import { Link } from 'react-router-dom';
 import { Camera, RefreshCw, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const InfrastructureDetector = ({ onBack }) => {
+const InfrastructureDetector = () => {
   const webcamRef = useRef(null);
   const [imageSrc, setImageSrc] = useState(null);
   const [detections, setDetections] = useState([]);
@@ -56,9 +57,9 @@ const InfrastructureDetector = ({ onBack }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
-        <button onClick={onBack} className="text-blue-600 flex items-center gap-1">
+        <Link to="/" className="text-blue-600 flex items-center gap-1">
           &larr; Back
-        </button>
+        </Link>
         <h2 className="text-xl font-bold text-gray-800">Infra Damage Detector</h2>
       </div>
 

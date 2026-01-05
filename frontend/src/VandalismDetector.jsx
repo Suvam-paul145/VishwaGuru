@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
+import { Link } from 'react-router-dom';
 
 const VandalismDetector = () => {
   const webcamRef = useRef(null);
@@ -57,7 +58,7 @@ const VandalismDetector = () => {
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto">
+    <div className="p-4 max-w-md mx-auto h-full flex flex-col">
       <h2 className="text-2xl font-bold mb-4">Graffiti & Vandalism Detector</h2>
 
       {cameraError ? (
@@ -128,6 +129,8 @@ const VandalismDetector = () => {
       <p className="mt-4 text-sm text-gray-600 text-center">
         Point camera at graffiti or vandalism to detect.
       </p>
+
+      <Link to="/" className="mt-6 text-blue-600 underline text-center w-full block">Back to Home</Link>
     </div>
   );
 };
