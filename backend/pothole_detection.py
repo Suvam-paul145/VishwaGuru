@@ -1,10 +1,12 @@
 import logging
+import threading
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 _model = None
+_model_lock = threading.Lock()
 
 def load_model():
     """
@@ -33,8 +35,13 @@ def load_model():
 
 def get_model():
     global _model
+    # Double-checked locking pattern to ensure thread safety
+    # This prevents multiple threads from loading the heavy model simultaneously
+    # while avoiding locking overhead for subsequent calls.
     if _model is None:
-        _model = load_model()
+        with _model_lock:
+            if _model is None:
+                _model = load_model()
     return _model
 
 def detect_potholes(image_source):
