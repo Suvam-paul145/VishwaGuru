@@ -173,8 +173,18 @@ async def create_issue(
         # Offload blocking DB operations to threadpool
         await run_in_threadpool(save_issue_db, db, new_issue)
 
+        # Invalidate Recent Issues Cache
+        RECENT_ISSUES_CACHE["data"] = None
+
         # Generate Action Plan (AI)
-        action_plan = await generate_action_plan(description, category, image_path)
+        try:
+            action_plan = await generate_action_plan(description, category, image_path)
+            new_issue.action_plan = action_plan
+            # Save updated action plan to DB
+            await run_in_threadpool(save_issue_db, db, new_issue)
+        except Exception as ai_e:
+            logger.error(f"AI Action Plan generation failed: {ai_e}", exc_info=True)
+            action_plan = "Analysis pending. Please check back later."
 
         return {
             "id": new_issue.id,
@@ -237,8 +247,18 @@ def get_recent_issues(db: Session = Depends(get_db)):
     if RECENT_ISSUES_CACHE["data"] and (current_time - RECENT_ISSUES_CACHE["timestamp"] < RECENT_ISSUES_CACHE["ttl"]):
         return RECENT_ISSUES_CACHE["data"]
 
-    # Fetch last 10 issues
-    issues = db.query(Issue).order_by(Issue.created_at.desc()).limit(10).all()
+    # Fetch last 10 issues with optimized column projection
+    # Only fetch necessary columns
+    issues = db.query(
+        Issue.id,
+        Issue.category,
+        Issue.description,
+        Issue.created_at,
+        Issue.image_path,
+        Issue.status,
+        Issue.upvotes
+    ).order_by(Issue.created_at.desc()).limit(10).all()
+
     # Sanitize data (no emails)
     data = [
         {

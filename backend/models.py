@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text
 from database import Base
 import datetime
 
@@ -14,3 +14,11 @@ class Issue(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     user_email = Column(String, nullable=True)
     upvotes = Column(Integer, default=0, index=True)
+
+    # Location data
+    location = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+
+    # AI Analysis
+    action_plan = Column(Text, nullable=True)
