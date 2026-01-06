@@ -25,7 +25,13 @@ from contextlib import asynccontextmanager
 from bot import run_bot
 from pothole_detection import detect_potholes
 from garbage_detection import detect_garbage
-from hf_service import detect_vandalism_clip, detect_flooding_clip, detect_infrastructure_clip
+from hf_service import (
+    detect_vandalism_clip,
+    detect_flooding_clip,
+    detect_infrastructure_clip,
+    detect_fire_clip,
+    detect_stray_animal_clip
+)
 from PIL import Image
 from init_db import migrate_db
 import logging
@@ -341,6 +347,40 @@ async def detect_garbage_endpoint(image: UploadFile = File(...)):
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Garbage detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/detect-fire")
+async def detect_fire_endpoint(image: UploadFile = File(...)):
+    # Convert to PIL Image directly from file object to save memory
+    try:
+        pil_image = await run_in_threadpool(Image.open, image.file)
+    except Exception as e:
+        logger.error(f"Invalid image file for fire detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # Run detection (async)
+    try:
+        detections = await detect_fire_clip(pil_image)
+        return {"detections": detections}
+    except Exception as e:
+        logger.error(f"Fire detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/detect-stray-animal")
+async def detect_stray_animal_endpoint(image: UploadFile = File(...)):
+    # Convert to PIL Image directly from file object to save memory
+    try:
+        pil_image = await run_in_threadpool(Image.open, image.file)
+    except Exception as e:
+        logger.error(f"Invalid image file for stray animal detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # Run detection (async)
+    try:
+        detections = await detect_stray_animal_clip(pil_image)
+        return {"detections": detections}
+    except Exception as e:
+        logger.error(f"Stray animal detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/api/mh/rep-contacts")
