@@ -237,14 +237,23 @@ def get_recent_issues(db: Session = Depends(get_db)):
     if RECENT_ISSUES_CACHE["data"] and (current_time - RECENT_ISSUES_CACHE["timestamp"] < RECENT_ISSUES_CACHE["ttl"]):
         return RECENT_ISSUES_CACHE["data"]
 
-    # Fetch last 10 issues
-    issues = db.query(Issue).order_by(Issue.created_at.desc()).limit(10).all()
+    # Fetch last 10 issues (optimize by selecting only needed columns)
+    issues = db.query(
+        Issue.id,
+        Issue.category,
+        Issue.description,
+        Issue.created_at,
+        Issue.image_path,
+        Issue.status,
+        Issue.upvotes
+    ).order_by(Issue.created_at.desc()).limit(10).all()
+
     # Sanitize data (no emails)
     data = [
         {
             "id": i.id,
             "category": i.category,
-            "description": i.description[:100] + "..." if len(i.description) > 100 else i.description,
+            "description": i.description[:100] + "..." if i.description and len(i.description) > 100 else (i.description or ""),
             "created_at": i.created_at,
             "image_path": i.image_path,
             "status": i.status,
