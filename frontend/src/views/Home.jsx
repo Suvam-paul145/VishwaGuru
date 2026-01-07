@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Car } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => (
   <div className="space-y-6">
@@ -73,6 +73,16 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
           <Zap size={24} />
         </div>
         <span className="font-semibold text-yellow-800">Broken Infra</span>
+      </button>
+
+      <button
+        onClick={() => setView('traffic')}
+        className="flex flex-col items-center justify-center bg-gray-50 border-2 border-gray-100 p-4 rounded-xl hover:bg-gray-100 transition shadow-sm h-32"
+      >
+        <div className="bg-gray-600 text-white p-3 rounded-full mb-2">
+          <Car size={24} />
+        </div>
+        <span className="font-semibold text-gray-800">Check Traffic</span>
       </button>
     </div>
 

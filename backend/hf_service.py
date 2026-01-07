@@ -129,3 +129,31 @@ async def detect_flooding_clip(image: Image.Image):
     except Exception as e:
         print(f"HF Detection Error: {e}")
         return []
+
+async def detect_traffic_clip(image: Image.Image):
+    try:
+        labels = ["traffic jam", "heavy traffic", "congested road", "road accident", "blocked road", "empty road", "sparse traffic", "moving traffic"]
+
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
+        img_bytes = img_byte_arr.getvalue()
+
+        results = await query_hf_api(img_bytes, labels)
+
+        if not isinstance(results, list):
+             return []
+
+        traffic_labels = ["traffic jam", "heavy traffic", "congested road", "road accident", "blocked road"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in traffic_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
