@@ -4,6 +4,11 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
+# Use TestClient with a context manager to ensure lifespan events run
+# However, TestClient(app) doesn't run lifespan by default in older versions,
+# but in recent Starlette/FastAPI it does if used as context manager.
+# Alternatively, we can manually mock app.state.
+
 client = TestClient(app)
 
 def test_read_main():
@@ -66,12 +71,14 @@ def test_detect_vandalism_new(mock_image_open, mock_run, mock_detect_vandalism):
 
     mock_run.side_effect = async_mock_run_img
 
-    response = client.post(
-        "/api/detect-vandalism",
-        files={"image": ("test.jpg", image_content, "image/jpeg")}
-    )
+    # Use client as context manager to trigger lifespan events
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/detect-vandalism",
+            files={"image": ("test.jpg", image_content, "image/jpeg")}
+        )
 
-    assert response.status_code == 200
-    data = response.json()
-    assert "detections" in data
-    assert data["detections"][0]["label"] == "graffiti"
+        assert response.status_code == 200
+        data = response.json()
+        assert "detections" in data
+        assert data["detections"][0]["label"] == "graffiti"

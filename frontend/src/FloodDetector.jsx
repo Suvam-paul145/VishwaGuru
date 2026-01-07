@@ -4,7 +4,7 @@ import { Camera, X, AlertTriangle, CheckCircle, Droplets } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const FloodDetector = () => {
+const FloodDetector = ({ onBack }) => {
   const webcamRef = useRef(null);
   const [image, setImage] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -58,6 +58,11 @@ const FloodDetector = () => {
 
   return (
     <div className="flex flex-col items-center p-4 w-full h-full">
+      {onBack && (
+         <button onClick={onBack} className="self-start text-blue-600 mb-2 w-full text-left">
+           &larr; Back
+         </button>
+      )}
       <h2 className="text-xl font-bold mb-4 text-cyan-800 flex items-center gap-2">
         <Droplets className="text-cyan-600"/> Flooding Detector
       </h2>

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
 
-const VandalismDetector = () => {
+const VandalismDetector = ({ onBack }) => {
   const webcamRef = useRef(null);
   const [imgSrc, setImgSrc] = useState(null);
   const [detections, setDetections] = useState([]);
@@ -58,6 +58,11 @@ const VandalismDetector = () => {
 
   return (
     <div className="p-4 max-w-md mx-auto">
+      {onBack && (
+        <button onClick={onBack} className="self-start text-blue-600 mb-2">
+           &larr; Back
+        </button>
+      )}
       <h2 className="text-2xl font-bold mb-4">Graffiti & Vandalism Detector</h2>
 
       {cameraError ? (

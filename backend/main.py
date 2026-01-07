@@ -30,6 +30,7 @@ from PIL import Image
 from init_db import migrate_db
 import logging
 import time
+import httpx
 
 # Configure structured logging
 logging.basicConfig(
@@ -52,6 +53,9 @@ Base.metadata.create_all(bind=engine)
 async def lifespan(app: FastAPI):
     # Startup: Migrate DB
     migrate_db()
+
+    # Startup: Initialize shared HTTP client
+    app.state.http_client = httpx.AsyncClient()
 
     # Startup: Load static data to avoid first-request latency
     try:
@@ -79,6 +83,9 @@ async def lifespan(app: FastAPI):
     
     yield
     
+    # Shutdown: Close shared HTTP client
+    await app.state.http_client.aclose()
+
     # Shutdown: Stop Telegram Bot
     if bot_task and not bot_task.done():
         try:
@@ -286,7 +293,7 @@ async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
 
     # Run detection (async now, so no threadpool needed for the detection call itself)
     try:
-        detections = await detect_infrastructure_clip(pil_image)
+        detections = await detect_infrastructure_clip(pil_image, client=app.state.http_client)
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Infrastructure detection error: {e}", exc_info=True)
@@ -303,7 +310,7 @@ async def detect_flooding_endpoint(image: UploadFile = File(...)):
 
     # Run detection (async)
     try:
-        detections = await detect_flooding_clip(pil_image)
+        detections = await detect_flooding_clip(pil_image, client=app.state.http_client)
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Flooding detection error: {e}", exc_info=True)
@@ -320,7 +327,7 @@ async def detect_vandalism_endpoint(image: UploadFile = File(...)):
 
     # Run detection (async)
     try:
-        detections = await detect_vandalism_clip(pil_image)
+        detections = await detect_vandalism_clip(pil_image, client=app.state.http_client)
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Vandalism detection error: {e}", exc_info=True)

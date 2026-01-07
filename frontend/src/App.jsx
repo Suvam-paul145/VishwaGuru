@@ -150,20 +150,10 @@ function App() {
           {view === 'pothole' && <PotholeDetector onBack={() => setView('home')} />}
           {view === 'garbage' && <GarbageDetector onBack={() => setView('home')} />}
           {view === 'vandalism' && (
-            <div className="flex flex-col h-full">
-              <button onClick={() => setView('home')} className="self-start text-blue-600 mb-2">
-                 &larr; Back
-              </button>
-              <VandalismDetector />
-            </div>
+            <VandalismDetector onBack={() => setView('home')} />
           )}
           {view === 'flood' && (
-            <div className="flex flex-col h-full">
-               <button onClick={() => setView('home')} className="self-start text-blue-600 mb-2">
-                 &larr; Back
-              </button>
-              <FloodDetector />
-            </div>
+            <FloodDetector onBack={() => setView('home')} />
           )}
           {view === 'infrastructure' && (
              <InfrastructureDetector onBack={() => setView('home')} />

@@ -9,8 +9,13 @@ token = os.environ.get("HF_TOKEN")
 headers = {"Authorization": f"Bearer {token}"} if token else {}
 API_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32"
 
-async def query_hf_api(image_bytes, labels):
-    async with httpx.AsyncClient() as client:
+async def query_hf_api(image_bytes, labels, client: httpx.AsyncClient = None):
+    should_close = False
+    if client is None:
+        client = httpx.AsyncClient()
+        should_close = True
+
+    try:
         # The zero-shot-image-classification pipeline expects "image" and "parameters"
         # However, the Inference API for CLIP often takes raw bytes and parameters in headers or query params
         # or a specific payload structure.
@@ -41,8 +46,11 @@ async def query_hf_api(image_bytes, labels):
         except Exception as e:
             print(f"HF API Request Exception: {e}")
             return []
+    finally:
+        if should_close:
+            await client.aclose()
 
-async def detect_vandalism_clip(image: Image.Image):
+async def detect_vandalism_clip(image: Image.Image, client: httpx.AsyncClient = None):
     """
     Detects vandalism/graffiti using Zero-Shot Image Classification with CLIP (Async).
     """
@@ -53,7 +61,7 @@ async def detect_vandalism_clip(image: Image.Image):
         image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
         img_bytes = img_byte_arr.getvalue()
 
-        results = await query_hf_api(img_bytes, labels)
+        results = await query_hf_api(img_bytes, labels, client)
 
         # Results format: [{'label': 'graffiti', 'score': 0.9}, ...]
         if not isinstance(results, list):
@@ -74,7 +82,7 @@ async def detect_vandalism_clip(image: Image.Image):
         print(f"HF Detection Error: {e}")
         return []
 
-async def detect_infrastructure_clip(image: Image.Image):
+async def detect_infrastructure_clip(image: Image.Image, client: httpx.AsyncClient = None):
     try:
         labels = ["broken streetlight", "damaged traffic sign", "fallen tree", "damaged fence", "pothole", "clean street", "normal infrastructure"]
 
@@ -82,7 +90,7 @@ async def detect_infrastructure_clip(image: Image.Image):
         image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
         img_bytes = img_byte_arr.getvalue()
 
-        results = await query_hf_api(img_bytes, labels)
+        results = await query_hf_api(img_bytes, labels, client)
 
         if not isinstance(results, list):
              return []
@@ -102,7 +110,7 @@ async def detect_infrastructure_clip(image: Image.Image):
         print(f"HF Detection Error: {e}")
         return []
 
-async def detect_flooding_clip(image: Image.Image):
+async def detect_flooding_clip(image: Image.Image, client: httpx.AsyncClient = None):
     try:
         labels = ["flooded street", "waterlogging", "blocked drain", "heavy rain", "dry street", "normal road"]
 
@@ -110,7 +118,7 @@ async def detect_flooding_clip(image: Image.Image):
         image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
         img_bytes = img_byte_arr.getvalue()
 
-        results = await query_hf_api(img_bytes, labels)
+        results = await query_hf_api(img_bytes, labels, client)
 
         if not isinstance(results, list):
              return []
