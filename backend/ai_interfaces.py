@@ -4,9 +4,7 @@ AI Service Interfaces and Dependency Injection
 This module defines abstract interfaces for AI services to reduce tight coupling
 and enable easier testing, mocking, and service provider switching.
 """
-from abc import ABC, abstractmethod
 from typing import Dict, Optional, Protocol
-import asyncio
 
 
 class ActionPlanService(Protocol):
