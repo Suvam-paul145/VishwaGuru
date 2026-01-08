@@ -74,6 +74,62 @@ async def detect_vandalism_clip(image: Image.Image):
         print(f"HF Detection Error: {e}")
         return []
 
+async def detect_fire_clip(image: Image.Image):
+    try:
+        labels = ["fire", "smoke", "burning building", "forest fire", "clear sky", "normal street", "fog"]
+
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
+        img_bytes = img_byte_arr.getvalue()
+
+        results = await query_hf_api(img_bytes, labels)
+
+        if not isinstance(results, list):
+             return []
+
+        fire_labels = ["fire", "smoke", "burning building", "forest fire"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in fire_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
+
+async def detect_stray_animal_clip(image: Image.Image):
+    try:
+        labels = ["cow", "dog", "cat", "monkey", "bull", "goat", "buffalo", "empty street", "human", "vehicle"]
+
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format=image.format if image.format else 'JPEG')
+        img_bytes = img_byte_arr.getvalue()
+
+        results = await query_hf_api(img_bytes, labels)
+
+        if not isinstance(results, list):
+             return []
+
+        animal_labels = ["cow", "dog", "cat", "monkey", "bull", "goat", "buffalo"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in animal_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
+
 async def detect_infrastructure_clip(image: Image.Image):
     try:
         labels = ["broken streetlight", "damaged traffic sign", "fallen tree", "damaged fence", "pothole", "clean street", "normal infrastructure"]

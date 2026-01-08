@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Flame, Dog } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => (
   <div className="space-y-6">
@@ -73,6 +73,26 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
           <Zap size={24} />
         </div>
         <span className="font-semibold text-yellow-800">Broken Infra</span>
+      </button>
+
+      <button
+        onClick={() => setView('fire')}
+        className="flex flex-col items-center justify-center bg-red-100 border-2 border-red-200 p-4 rounded-xl hover:bg-red-200 transition shadow-sm h-32"
+      >
+        <div className="bg-red-600 text-white p-3 rounded-full mb-2">
+          <Flame size={24} />
+        </div>
+        <span className="font-semibold text-red-900">Detect Fire</span>
+      </button>
+
+      <button
+        onClick={() => setView('stray-animal')}
+        className="flex flex-col items-center justify-center bg-amber-50 border-2 border-amber-100 p-4 rounded-xl hover:bg-amber-100 transition shadow-sm h-32"
+      >
+        <div className="bg-amber-500 text-white p-3 rounded-full mb-2">
+          <Dog size={24} />
+        </div>
+        <span className="font-semibold text-amber-800">Stray Animal</span>
       </button>
     </div>
 
