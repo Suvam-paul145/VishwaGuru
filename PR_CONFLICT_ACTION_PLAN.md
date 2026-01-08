@@ -8,6 +8,12 @@
 
 **Resolution**: Close PRs #14, #16, #17, and #18 as their features are already implemented. PR #14 has one unique feature (user_email) that needs a decision.
 
+## Mandatory Workflow for Every Merge Request
+
+- Resolve merge conflicts before taking merge action.
+- Add the `ECWoC` label to every merge request during triage (even if the PR will be closed).
+- Perform a review and only merge after that review is complete and recorded.
+
 ## Immediate Actions Required
 
 ### 1. Close PR #18 - ⚡ Bolt: Optimize MLA lookup with O(1) map
@@ -152,6 +158,8 @@ This PR has no conflicts and addresses a valid issue. Standard review process ap
 ## Verification Steps
 
 After taking actions above:
+
+**Policy Check**: Confirm each merge request has the `ECWoC` label applied and was merged only after review.
 
 1. **Verify PRs are closed**: Check that PRs #14, #16, #17, #18 show as "Closed"
 2. **Verify comments posted**: Each closed PR should have explanatory comment
