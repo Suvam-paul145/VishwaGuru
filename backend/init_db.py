@@ -1,10 +1,27 @@
+"""
+Database migration utilities.
+
+This module provides simple database migration functionality for the application.
+It handles schema updates and ensures backward compatibility with existing databases.
+"""
 from sqlalchemy import text
 from database import engine
 
+
 def migrate_db():
     """
-    Perform database migrations.
-    This is a simple MVP migration strategy.
+    Perform database migrations for schema updates.
+    
+    This function applies necessary schema changes to the database, including:
+    - Adding missing columns (upvotes, latitude, longitude, location, action_plan)
+    - Creating indexes for performance optimization
+    
+    The migration is idempotent - it safely handles cases where changes
+    have already been applied.
+    
+    Note:
+        This is a simple MVP migration strategy. For production use,
+        consider using Alembic or a similar migration framework.
     """
     try:
         with engine.connect() as conn:

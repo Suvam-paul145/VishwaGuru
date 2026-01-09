@@ -153,11 +153,35 @@ def root():
 def health():
     return {"status": "healthy"}
 
-def save_file_blocking(file_obj, path):
+def save_uploaded_file(file_obj, path):
+    """
+    Save an uploaded file to the specified path.
+    
+    This is a blocking I/O operation intended to be run in a thread pool
+    to avoid blocking the async event loop.
+    
+    Args:
+        file_obj: File-like object to read from
+        path: Destination file path where the file should be saved
+    """
     with open(path, "wb") as buffer:
         shutil.copyfileobj(file_obj, buffer)
 
 def save_issue_db(db: Session, issue: Issue):
+    """
+    Save a new issue to the database.
+    
+    This is a blocking database operation intended to be run in a thread pool.
+    Adds the issue to the session, commits the transaction, and refreshes
+    the issue object to include database-generated fields.
+    
+    Args:
+        db: Database session
+        issue: Issue instance to save
+        
+    Returns:
+        Issue: The saved issue with updated fields (e.g., id, created_at)
+    """
     db.add(issue)
     db.commit()
     db.refresh(issue)
@@ -185,7 +209,7 @@ async def create_issue(
             image_path = os.path.join(upload_dir, filename)
 
             # Offload blocking file I/O to threadpool
-            await run_in_threadpool(save_file_blocking, image.file, image_path)
+            await run_in_threadpool(save_uploaded_file, image.file, image_path)
 
         # Generate Action Plan (AI)
         ai_services = get_ai_services()
@@ -240,6 +264,19 @@ def upvote_issue(issue_id: int, db: Session = Depends(get_db)):
 
 @lru_cache(maxsize=1)
 def _load_responsibility_map():
+    """
+    Load and cache the responsibility map data.
+    
+    Reads the responsibility map JSON file which contains information
+    about which government departments handle different types of issues.
+    This function is cached to avoid repeated file I/O.
+    
+    Returns:
+        dict: Responsibility map data structure
+        
+    Raises:
+        FileNotFoundError: If the responsibility map file doesn't exist
+    """
     # Assuming the data folder is at the root level relative to where backend is run
     # Adjust path as necessary. If running from root, it is "data/responsibility_map.json"
     file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "responsibility_map.json")
