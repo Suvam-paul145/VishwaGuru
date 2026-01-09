@@ -64,25 +64,53 @@ async def validate_image_upload(
         if ext not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid file extension. Allowed extensions: {', '.join(allowed_extensions)}"
+                detail="Invalid file type. Please upload a valid image file."
             )
     else:
         raise HTTPException(status_code=400, detail="Filename is required")
     
-    # Read file content for validation
-    file_content = await file.read()
-    file_size = len(file_content)
+    # Check file size efficiently without reading entire file into memory
+    # Try to get size from file object first
+    file_size = 0
+    try:
+        # Some UploadFile implementations have a size attribute
+        if hasattr(file, 'size') and file.size is not None:
+            file_size = file.size
+        else:
+            # Read file in chunks to check size without loading all into memory
+            chunk_size = 8192  # 8KB chunks
+            total_size = 0
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                # Stop reading if we exceed max size
+                if total_size > max_size:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="File too large"
+                    )
+            file_size = total_size
+            # Reset to read content for MIME validation
+            await file.seek(0)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Unable to process file")
     
     # Validate file size
     if file_size == 0:
         raise HTTPException(status_code=400, detail="Empty file not allowed")
     
     if file_size > max_size:
-        max_size_mb = max_size / (1024 * 1024)
         raise HTTPException(
             status_code=400,
-            detail=f"File size exceeds maximum allowed size of {max_size_mb}MB"
+            detail="File too large"
         )
+    
+    # Read file content for MIME validation (now we know it's under size limit)
+    file_content = await file.read()
     
     # Validate MIME type using python-magic (content-based detection)
     try:
@@ -90,7 +118,7 @@ async def validate_image_upload(
         if mime not in allowed_mime_types:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid file type. Allowed types: {', '.join(allowed_mime_types)}"
+                detail="Invalid file type"
             )
     except HTTPException:
         # Re-raise HTTPException from the mime type check
@@ -110,6 +138,7 @@ async def validate_image_upload(
 def validate_filename(filename: str) -> str:
     """
     Sanitize and validate filename to prevent path traversal attacks.
+    Uses multiple layers of defense including pattern checks and normalization.
     
     Args:
         filename: Original filename from upload
@@ -118,22 +147,43 @@ def validate_filename(filename: str) -> str:
         Sanitized filename safe for filesystem operations
         
     Raises:
-        HTTPException: If filename contains invalid characters
+        HTTPException: If filename contains invalid characters or suspicious patterns
     """
     if not filename:
         raise HTTPException(status_code=400, detail="Filename is required")
     
-    # Check for suspicious patterns before normalization
-    if '..' in filename or '/' in filename or '\\' in filename:
+    # First, URL decode to catch encoded path traversal attempts like %2e%2e
+    import urllib.parse
+    try:
+        decoded_filename = urllib.parse.unquote(filename)
+    except Exception:
+        decoded_filename = filename
+    
+    # Check for suspicious patterns in both original and decoded versions
+    suspicious_patterns = ['..', '/', '\\', '\x00']
+    for pattern in suspicious_patterns:
+        if pattern in filename or pattern in decoded_filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # Additional check for Unicode normalization bypasses
+    try:
+        import unicodedata
+        normalized = unicodedata.normalize('NFKC', decoded_filename)
+        for pattern in suspicious_patterns:
+            if pattern in normalized:
+                raise HTTPException(status_code=400, detail="Invalid filename")
+    except Exception:
+        # If normalization fails, reject the filename
         raise HTTPException(status_code=400, detail="Invalid filename")
     
     # Remove any path components (belt and suspenders approach)
-    filename = os.path.basename(filename)
+    filename = os.path.basename(normalized)
     
-    # Remove any null bytes
-    filename = filename.replace('\x00', '')
+    # Remove any control characters and null bytes
+    filename = ''.join(char for char in filename if ord(char) >= 32)
     
-    if not filename:
+    # Validate final filename
+    if not filename or len(filename) > 255:
         raise HTTPException(status_code=400, detail="Invalid filename after sanitization")
     
     return filename
