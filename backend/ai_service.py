@@ -3,6 +3,10 @@ import google.generativeai as genai
 from typing import Optional
 import warnings
 from async_lru import alru_cache
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Suppress deprecation warnings from google.generativeai
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
@@ -55,7 +59,7 @@ async def generate_action_plan(issue_description: str, category: str, image_path
         return json.loads(text_response)
 
     except Exception as e:
-        print(f"Gemini Error: {e}")
+        logger.error(f"Gemini Error: {e}", exc_info=True)
         # Fallback
         return {
             "whatsapp": f"Hello, I would like to report a {category} issue: {issue_description}",
@@ -86,5 +90,5 @@ async def chat_with_civic_assistant(query: str) -> str:
         response = await model.generate_content_async(prompt)
         return response.text.strip()
     except Exception as e:
-        print(f"Gemini Chat Error: {e}")
+        logger.error(f"Gemini Chat Error: {e}", exc_info=True)
         return "I encountered an error processing your request."

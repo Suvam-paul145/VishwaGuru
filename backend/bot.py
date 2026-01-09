@@ -11,6 +11,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
 # States for ConversationHandler
 PHOTO, DESCRIPTION, CATEGORY = range(3)
@@ -112,7 +113,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def run_bot():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
-        print("Warning: TELEGRAM_BOT_TOKEN environment variable not set. Bot will not start.")
+        logger.warning("TELEGRAM_BOT_TOKEN environment variable not set. Bot will not start.")
         return None
 
     try:
@@ -130,19 +131,18 @@ async def run_bot():
 
         application.add_handler(conv_handler)
 
-        print("Bot is starting...")
+        logger.info("Bot is starting...")
         # Initialize and start the application
         await application.initialize()
         await application.start()
         await application.updater.start_polling()
 
-        print("Bot started successfully and is polling for updates.")
+        logger.info("Bot started successfully and is polling for updates.")
         
         # Return application so we can stop it later
         return application
     except Exception as e:
-        print(f"Error initializing bot: {e}")
-        logging.error(f"Bot initialization failed: {e}")
+        logger.error(f"Error initializing bot: {e}", exc_info=True)
         return None
 
 if __name__ == '__main__':

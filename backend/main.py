@@ -77,9 +77,9 @@ async def lifespan(app: FastAPI):
         # These functions use lru_cache, so calling them once loads the data into memory
         load_maharashtra_pincode_data()
         load_maharashtra_mla_data()
-        print("Maharashtra data pre-loaded successfully.")
+        logger.info("Maharashtra data pre-loaded successfully.")
     except Exception as e:
-        print(f"Error pre-loading Maharashtra data: {e}")
+        logger.error(f"Error pre-loading Maharashtra data: {e}", exc_info=True)
 
     # Startup: Start Telegram Bot in background (non-blocking)
     bot_task = None
@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI):
         try:
             bot_app = await run_bot()
         except Exception as e:
-            print(f"Error starting bot: {e}")
+            logger.error(f"Error starting bot: {e}", exc_info=True)
     
     # Create background task for bot initialization
     bot_task = asyncio.create_task(start_bot_background())
@@ -110,7 +110,7 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass  # Expected when cancelling
         except Exception as e:
-            print(f"Error cancelling bot task: {e}")
+            logger.error(f"Error cancelling bot task: {e}", exc_info=True)
     
     if bot_app:
         try:
@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):
             await bot_app.stop()
             await bot_app.shutdown()
         except Exception as e:
-            print(f"Error stopping bot: {e}")
+            logger.error(f"Error stopping bot: {e}", exc_info=True)
 
 app = FastAPI(title="VishwaGuru Backend", lifespan=lifespan)
 
@@ -451,7 +451,7 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
                 mla_name=mla_info["mla_name"]
             )
     except Exception as e:
-        print(f"Error generating MLA summary: {e}")
+        logger.error(f"Error generating MLA summary: {e}", exc_info=True)
         # Continue without description
     
     # Build response
