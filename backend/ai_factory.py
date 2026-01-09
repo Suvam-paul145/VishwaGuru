@@ -100,12 +100,23 @@ def create_mla_summary_service(service_type: ServiceType = None) -> MLASummarySe
         raise ValueError(f"Unknown service type: {service_type}")
 
 
-def create_all_ai_services(service_type: ServiceType = None):
+def create_all_ai_services(service_type: ServiceType = None) -> Tuple[
+    ActionPlanService, 
+    ChatService, 
+    MLASummaryService,
+    DetectionService,
+    DetectionService,
+    DetectionService,
+    DetectionService,
+    DetectionService
+]:
     """
     Create all AI services with the specified type.
 
     Returns:
-        Tuple of all AI services
+        Tuple of all AI services: (action_plan, chat, mla_summary, 
+                                   vandalism_detection, infrastructure_detection,
+                                   flooding_detection, pothole_detection, garbage_detection)
     """
     if service_type is None:
         service_type = get_service_type()

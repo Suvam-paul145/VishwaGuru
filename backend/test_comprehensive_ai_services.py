@@ -6,7 +6,6 @@ import os
 from ai_interfaces import initialize_ai_services, get_ai_services
 from ai_factory import create_all_ai_services
 from PIL import Image
-import io
 
 
 async def test_all_services():
