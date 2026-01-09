@@ -122,9 +122,9 @@ def test_validate_all_supported_formats():
             image_bytes = create_test_image(100, 100, fmt)
             image, detected_fmt = validate_image_file(image_bytes)
             assert detected_fmt == fmt
-        except Exception as e:
+        except (OSError, ValueError) as e:
             # WEBP might not be available in all PIL installations
-            if fmt == 'WEBP' and 'cannot write mode' in str(e).lower():
+            if fmt == 'WEBP' and ('WEBP' in str(e) or 'cannot write mode' in str(e)):
                 pytest.skip(f"WEBP support not available in this PIL installation")
             else:
                 raise

@@ -227,7 +227,6 @@ async def create_issue(
             "action_plan": action_plan_data
         }
     except HTTPException:
-        # Re-raise HTTP exceptions as-is (including validation errors)
         raise
     except Exception as e:
         logger.error(f"Error creating issue: {e}", exc_info=True)
