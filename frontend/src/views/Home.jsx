@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Map } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => (
   <div className="space-y-6">
@@ -76,8 +76,17 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
       </button>
     </div>
 
-    <div className="grid grid-cols-1 mt-4">
+    <div className="grid grid-cols-1 mt-4 gap-4">
        <button
+        onClick={() => setView('impact-map')}
+        className="flex flex-row items-center justify-center bg-teal-50 border-2 border-teal-100 p-4 rounded-xl hover:bg-teal-100 transition shadow-sm h-16"
+      >
+        <div className="bg-teal-500 text-white p-2 rounded-full mr-3">
+          <Map size={20} />
+        </div>
+        <span className="font-semibold text-teal-800">Impact Map Dashboard</span>
+      </button>
+      <button
         onClick={fetchResponsibilityMap}
         className="flex flex-row items-center justify-center bg-green-50 border-2 border-green-100 p-4 rounded-xl hover:bg-green-100 transition shadow-sm h-16"
       >

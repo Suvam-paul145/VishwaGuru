@@ -5,6 +5,7 @@ import ChatWidget from './components/ChatWidget';
 // Lazy Load Views
 const Home = React.lazy(() => import('./views/Home'));
 const MapView = React.lazy(() => import('./views/MapView'));
+const ImpactMapView = React.lazy(() => import('./views/ImpactMapView'));
 const ReportForm = React.lazy(() => import('./views/ReportForm'));
 const ActionView = React.lazy(() => import('./views/ActionView'));
 const MaharashtraRepView = React.lazy(() => import('./views/MaharashtraRepView'));
@@ -20,7 +21,7 @@ const InfrastructureDetector = React.lazy(() => import('./InfrastructureDetector
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 function App() {
-  const [view, setView] = useState('home'); // home, map, report, action, mh-rep, pothole, garbage
+  const [view, setView] = useState('home'); // home, map, impact-map, report, action, mh-rep, pothole, garbage, vandalism, flood, infrastructure
   const [responsibilityMap, setResponsibilityMap] = useState(null);
   const [actionPlan, setActionPlan] = useState(null);
   const [maharashtraRepInfo, setMaharashtraRepInfo] = useState(null);
@@ -119,6 +120,11 @@ function App() {
           {view === 'map' && (
             <MapView
               responsibilityMap={responsibilityMap}
+              setView={setView}
+            />
+          )}
+          {view === 'impact-map' && (
+            <ImpactMapView
               setView={setView}
             />
           )}

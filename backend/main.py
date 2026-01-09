@@ -300,6 +300,32 @@ def get_recent_issues(db: Session = Depends(get_db)):
 
     return data
 
+@app.get("/api/issues/map")
+def get_issues_for_map(db: Session = Depends(get_db)):
+    # Fetch all issues with location data (limit to 500 for performance)
+    issues = db.query(Issue).filter(
+        Issue.latitude.isnot(None),
+        Issue.longitude.isnot(None)
+    ).order_by(Issue.created_at.desc()).limit(500).all()
+    
+    # Return minimal data for map markers
+    data = [
+        {
+            "id": i.id,
+            "category": i.category,
+            "description": i.description[:100] + "..." if len(i.description) > 100 else i.description,
+            "status": i.status,
+            "latitude": i.latitude,
+            "longitude": i.longitude,
+            "location": i.location,
+            "upvotes": i.upvotes if i.upvotes is not None else 0,
+            "created_at": i.created_at.isoformat() if i.created_at else None
+        }
+        for i in issues
+    ]
+    
+    return data
+
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
     # Convert to PIL Image directly from file object to save memory
