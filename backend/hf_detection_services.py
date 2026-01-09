@@ -74,11 +74,11 @@ def create_hf_flooding_detection_service() -> HFFloodingDetectionService:
     return HFFloodingDetectionService()
 
 
-def create_pothole_detection_service() -> PotholeDetectionService:
+def create_local_pothole_detection_service() -> PotholeDetectionService:
     """Create a local pothole detection service."""
     return PotholeDetectionService()
 
 
-def create_garbage_detection_service() -> GarbageDetectionService:
+def create_local_garbage_detection_service() -> GarbageDetectionService:
     """Create a local garbage detection service."""
     return GarbageDetectionService()

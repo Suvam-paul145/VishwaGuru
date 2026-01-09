@@ -26,8 +26,8 @@ from hf_detection_services import (
     create_hf_vandalism_detection_service,
     create_hf_infrastructure_detection_service,
     create_hf_flooding_detection_service,
-    create_pothole_detection_service,
-    create_garbage_detection_service
+    create_local_pothole_detection_service,
+    create_local_garbage_detection_service
 )
 from mock_detection_services import (
     create_mock_vandalism_detection_service,
@@ -163,7 +163,7 @@ def create_pothole_detection_service(service_type: ServiceType = None) -> Detect
     if service_type == "mock":
         return create_mock_pothole_detection_service()
     else:
-        return create_pothole_detection_service()
+        return create_local_pothole_detection_service()
 
 
 def create_garbage_detection_service(service_type: ServiceType = None) -> DetectionService:
@@ -174,4 +174,4 @@ def create_garbage_detection_service(service_type: ServiceType = None) -> Detect
     if service_type == "mock":
         return create_mock_garbage_detection_service()
     else:
-        return create_garbage_detection_service()
+        return create_local_garbage_detection_service()
