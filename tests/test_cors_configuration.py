@@ -87,7 +87,8 @@ if __name__ == "__main__":
     # We'll run basic validation tests without pytest
     print("\nTest 1: Validating that the validation function works correctly...")
     
-    # Test the validation function directly
+    # Import from the correct path
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
     from main import validate_and_get_cors_origins
     
     # Test valid single origin

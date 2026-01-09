@@ -169,7 +169,7 @@ def validate_and_get_cors_origins():
             "Please specify explicit origin(s) for security."
         )
     
-    logger.info(f"CORS configured with allowed origins: {origins}")
+    logger.info(f"CORS configured with {len(origins)} allowed origin(s)")
     return origins
 
 # Validate and get allowed origins
