@@ -14,3 +14,4 @@ httpx
 firebase-functions
 firebase-admin
 a2wsgi
+python-magic

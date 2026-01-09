@@ -31,6 +31,7 @@ from init_db import migrate_db
 import logging
 import time
 import httpx
+from file_validator import validate_image_upload, validate_filename
 
 # Configure structured logging
 logging.basicConfig(
@@ -178,10 +179,14 @@ async def create_issue(
         # Save image if provided
         image_path = None
         if image:
+            # Validate uploaded image
+            await validate_image_upload(image)
+            
             upload_dir = "data/uploads"
             os.makedirs(upload_dir, exist_ok=True)
-            # Generate unique filename
-            filename = f"{uuid.uuid4()}_{image.filename}"
+            # Generate unique filename with sanitized original filename
+            sanitized_filename = validate_filename(image.filename)
+            filename = f"{uuid.uuid4()}_{sanitized_filename}"
             image_path = os.path.join(upload_dir, filename)
 
             # Offload blocking file I/O to threadpool
@@ -302,6 +307,9 @@ def get_recent_issues(db: Session = Depends(get_db)):
 
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
+    # Validate uploaded image
+    await validate_image_upload(image)
+    
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -319,6 +327,9 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
 
 @app.post("/api/detect-infrastructure")
 async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
+    # Validate uploaded image
+    await validate_image_upload(image)
+    
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -338,6 +349,9 @@ async def detect_infrastructure_endpoint(request: Request, image: UploadFile = F
 
 @app.post("/api/detect-flooding")
 async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
+    # Validate uploaded image
+    await validate_image_upload(image)
+    
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -357,6 +371,9 @@ async def detect_flooding_endpoint(request: Request, image: UploadFile = File(..
 
 @app.post("/api/detect-vandalism")
 async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
+    # Validate uploaded image
+    await validate_image_upload(image)
+    
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -376,6 +393,9 @@ async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(.
 
 @app.post("/api/detect-garbage")
 async def detect_garbage_endpoint(image: UploadFile = File(...)):
+    # Validate uploaded image
+    await validate_image_upload(image)
+    
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
