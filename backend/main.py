@@ -28,6 +28,7 @@ from garbage_detection import detect_garbage
 from hf_service import detect_vandalism_clip, detect_flooding_clip, detect_infrastructure_clip
 from PIL import Image
 from init_db import migrate_db
+from image_validator import validate_uploaded_image, ImageValidationError
 import logging
 import time
 import httpx
@@ -178,6 +179,13 @@ async def create_issue(
         # Save image if provided
         image_path = None
         if image:
+            # Validate the image first
+            try:
+                pil_image, img_format = await validate_uploaded_image(image)
+            except ImageValidationError as e:
+                logger.error(f"Image validation failed for issue creation: {e}")
+                raise HTTPException(status_code=400, detail=str(e))
+            
             upload_dir = "data/uploads"
             os.makedirs(upload_dir, exist_ok=True)
             # Generate unique filename
@@ -218,6 +226,9 @@ async def create_issue(
             "message": "Issue reported successfully",
             "action_plan": action_plan_data
         }
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is (including validation errors)
+        raise
     except Exception as e:
         logger.error(f"Error creating issue: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -302,9 +313,12 @@ def get_recent_issues(db: Session = Depends(get_db)):
 
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
-    # Convert to PIL Image directly from file object to save memory
+    # Validate and convert to PIL Image
     try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
+        pil_image, img_format = await validate_uploaded_image(image)
+    except ImageValidationError as e:
+        logger.error(f"Image validation failed for pothole detection: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Invalid image file for pothole detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -319,9 +333,12 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
 
 @app.post("/api/detect-infrastructure")
 async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
-    # Convert to PIL Image directly from file object to save memory
+    # Validate and convert to PIL Image
     try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
+        pil_image, img_format = await validate_uploaded_image(image)
+    except ImageValidationError as e:
+        logger.error(f"Image validation failed for infrastructure detection: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Invalid image file for infrastructure detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -338,9 +355,12 @@ async def detect_infrastructure_endpoint(request: Request, image: UploadFile = F
 
 @app.post("/api/detect-flooding")
 async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
-    # Convert to PIL Image directly from file object to save memory
+    # Validate and convert to PIL Image
     try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
+        pil_image, img_format = await validate_uploaded_image(image)
+    except ImageValidationError as e:
+        logger.error(f"Image validation failed for flooding detection: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Invalid image file for flooding detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -357,9 +377,12 @@ async def detect_flooding_endpoint(request: Request, image: UploadFile = File(..
 
 @app.post("/api/detect-vandalism")
 async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
-    # Convert to PIL Image directly from file object to save memory
+    # Validate and convert to PIL Image
     try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
+        pil_image, img_format = await validate_uploaded_image(image)
+    except ImageValidationError as e:
+        logger.error(f"Image validation failed for vandalism detection: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -376,9 +399,12 @@ async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(.
 
 @app.post("/api/detect-garbage")
 async def detect_garbage_endpoint(image: UploadFile = File(...)):
-    # Convert to PIL Image directly from file object to save memory
+    # Validate and convert to PIL Image
     try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
+        pil_image, img_format = await validate_uploaded_image(image)
+    except ImageValidationError as e:
+        logger.error(f"Image validation failed for garbage detection: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Invalid image file for garbage detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
