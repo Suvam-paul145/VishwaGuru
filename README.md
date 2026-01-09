@@ -52,6 +52,7 @@ The backend handles API requests, database interactions, and the Telegram bot.
     Required Environment Variables:
     *   `TELEGRAM_BOT_TOKEN`: Token from @BotFather for the Telegram Bot.
     *   `GEMINI_API_KEY`: API Key from Google AI Studio.
+    *   `FRONTEND_URL`: URL(s) of your frontend for CORS (e.g., `http://localhost:5173` for local dev, or `https://your-app.netlify.app` for production). Multiple origins can be comma-separated.
     *   `DATABASE_URL`: (Optional) Connection string for PostgreSQL. Defaults to `sqlite:///./data/issues.db`.
 
     **Note**: You can copy the example file:
