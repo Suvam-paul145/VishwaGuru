@@ -92,11 +92,15 @@ async def validate_image_upload(
                 status_code=400,
                 detail=f"Invalid file type. Allowed types: {', '.join(allowed_mime_types)}"
             )
-    except Exception as e:
-        # If magic fails, reject the file for safety
+    except HTTPException:
+        # Re-raise HTTPException from the mime type check
+        raise
+    except Exception:
+        # If magic fails for any reason, reject the file for safety
+        # Don't expose internal error details to prevent information leakage
         raise HTTPException(
             status_code=400,
-            detail=f"Unable to verify file type: {str(e)}"
+            detail="Unable to verify file type"
         )
     
     # Reset file pointer to beginning for subsequent reads
