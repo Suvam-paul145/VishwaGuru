@@ -6,6 +6,8 @@ MIME type validation, and content verification.
 from fastapi import UploadFile, HTTPException
 import magic
 import os
+import urllib.parse
+import unicodedata
 from typing import Set, Optional
 
 # Configuration
@@ -69,48 +71,49 @@ async def validate_image_upload(
     else:
         raise HTTPException(status_code=400, detail="Filename is required")
     
-    # Check file size efficiently without reading entire file into memory
-    # Try to get size from file object first
+    # Check file size and read content efficiently
+    # Try to get size from file object first, otherwise read in chunks
+    file_content = b''
     file_size = 0
+    
     try:
         # Some UploadFile implementations have a size attribute
         if hasattr(file, 'size') and file.size is not None:
             file_size = file.size
+            # Check size before reading
+            if file_size == 0:
+                raise HTTPException(status_code=400, detail="Empty file not allowed")
+            if file_size > max_size:
+                raise HTTPException(status_code=400, detail="File too large")
+            # Now safe to read the full content
+            file_content = await file.read()
         else:
-            # Read file in chunks to check size without loading all into memory
+            # Read file in chunks to check size and accumulate content
             chunk_size = 8192  # 8KB chunks
+            chunks = []
             total_size = 0
+            
             while True:
                 chunk = await file.read(chunk_size)
                 if not chunk:
                     break
+                chunks.append(chunk)
                 total_size += len(chunk)
                 # Stop reading if we exceed max size
                 if total_size > max_size:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="File too large"
-                    )
+                    raise HTTPException(status_code=400, detail="File too large")
+            
             file_size = total_size
-            # Reset to read content for MIME validation
-            await file.seek(0)
+            file_content = b''.join(chunks)
+            
+            # Validate size
+            if file_size == 0:
+                raise HTTPException(status_code=400, detail="Empty file not allowed")
+                
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(status_code=400, detail="Unable to process file")
-    
-    # Validate file size
-    if file_size == 0:
-        raise HTTPException(status_code=400, detail="Empty file not allowed")
-    
-    if file_size > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail="File too large"
-        )
-    
-    # Read file content for MIME validation (now we know it's under size limit)
-    file_content = await file.read()
     
     # Validate MIME type using python-magic (content-based detection)
     try:
@@ -153,7 +156,6 @@ def validate_filename(filename: str) -> str:
         raise HTTPException(status_code=400, detail="Filename is required")
     
     # First, URL decode to catch encoded path traversal attempts like %2e%2e
-    import urllib.parse
     try:
         decoded_filename = urllib.parse.unquote(filename)
     except Exception:
@@ -167,7 +169,6 @@ def validate_filename(filename: str) -> str:
     
     # Additional check for Unicode normalization bypasses
     try:
-        import unicodedata
         normalized = unicodedata.normalize('NFKC', decoded_filename)
         for pattern in suspicious_patterns:
             if pattern in normalized:
@@ -179,8 +180,15 @@ def validate_filename(filename: str) -> str:
     # Remove any path components (belt and suspenders approach)
     filename = os.path.basename(normalized)
     
-    # Remove any control characters and null bytes
-    filename = ''.join(char for char in filename if ord(char) >= 32)
+    # Remove all control characters (ASCII and Unicode)
+    # Filter out characters that are control characters or format characters
+    sanitized = []
+    for char in filename:
+        cat = unicodedata.category(char)
+        # Keep printable characters, exclude control (Cc), format (Cf), surrogate (Cs), and unassigned (Cn)
+        if cat not in ('Cc', 'Cf', 'Cs', 'Cn', 'Co'):
+            sanitized.append(char)
+    filename = ''.join(sanitized)
     
     # Validate final filename
     if not filename or len(filename) > 255:
