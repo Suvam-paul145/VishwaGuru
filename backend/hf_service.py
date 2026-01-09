@@ -5,6 +5,7 @@ from PIL import Image
 import asyncio
 from retry_utils import exponential_backoff_retry
 import logging
+import base64
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -30,7 +31,6 @@ async def _make_request_with_retry(client, image_bytes, labels):
     Internal function that makes HF API request with retry logic.
     Raises exception on failure to allow retry decorator to work.
     """
-    import base64
     image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
     payload = {

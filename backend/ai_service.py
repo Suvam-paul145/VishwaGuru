@@ -5,6 +5,7 @@ import warnings
 from async_lru import alru_cache
 from retry_utils import exponential_backoff_retry
 import logging
+import json
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -33,8 +34,6 @@ async def _generate_action_plan_with_retry(issue_description: str, category: str
     Internal function that generates action plan with retry logic.
     Raises exception on failure to allow retry decorator to work.
     """
-    import json
-    
     model = genai.GenerativeModel('gemini-1.5-flash')
 
     prompt = f"""
