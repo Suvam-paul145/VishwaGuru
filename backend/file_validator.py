@@ -121,12 +121,12 @@ def validate_filename(filename: str) -> str:
     if not filename:
         raise HTTPException(status_code=400, detail="Filename is required")
     
-    # Remove any path components
-    filename = os.path.basename(filename)
-    
-    # Check for suspicious patterns
+    # Check for suspicious patterns before normalization
     if '..' in filename or '/' in filename or '\\' in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # Remove any path components (belt and suspenders approach)
+    filename = os.path.basename(filename)
     
     # Remove any null bytes
     filename = filename.replace('\x00', '')
