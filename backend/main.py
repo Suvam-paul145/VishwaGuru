@@ -1,9 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from database import engine, get_db
+from database import engine, get_db, SessionLocal
 from models import Base, Issue
 from ai_interfaces import get_ai_services, initialize_ai_services
 from ai_factory import create_all_ai_services
@@ -154,8 +154,36 @@ def save_issue_db(db: Session, issue: Issue):
     db.refresh(issue)
     return issue
 
+async def process_issue_ai(issue_id: int, description: str, category: str, image_path: str):
+    """
+    Background task to generate AI action plan and update the issue in DB.
+    """
+    db = SessionLocal()
+    try:
+        # Generate Action Plan (AI)
+        ai_services = get_ai_services()
+        action_plan_dict = await ai_services.action_plan_service.generate_action_plan(description, category, image_path)
+
+        # Convert dict to string (JSON)
+        action_plan_json = json.dumps(action_plan_dict)
+
+        # Update issue in DB
+        issue = db.query(Issue).filter(Issue.id == issue_id).first()
+        if issue:
+            issue.action_plan = action_plan_json # Storing as JSON string
+            db.commit()
+            logger.info(f"Updated issue {issue_id} with AI action plan.")
+
+            # Invalidate cache so users see the new plan
+            RECENT_ISSUES_CACHE["data"] = None
+    except Exception as e:
+        logger.error(f"Error in background AI processing for issue {issue_id}: {e}", exc_info=True)
+    finally:
+        db.close()
+
 @app.post("/api/issues")
 async def create_issue(
+    background_tasks: BackgroundTasks,
     description: str = Form(...),
     category: str = Form(...),
     user_email: str = Form(None),
@@ -178,11 +206,14 @@ async def create_issue(
             # Offload blocking file I/O to threadpool
             await run_in_threadpool(save_file_blocking, image.file, image_path)
 
-        # Generate Action Plan (AI)
-        ai_services = get_ai_services()
-        action_plan = await ai_services.action_plan_service.generate_action_plan(description, category, image_path)
+        # Placeholder Action Plan
+        placeholder_action_plan = {
+            "whatsapp": "Generating...",
+            "email_subject": "Generating...",
+            "email_body": "Action plan is being generated in the background. Please check back later."
+        }
 
-        # Save to DB
+        # Save to DB with placeholder (stored as JSON string to be consistent)
         new_issue = Issue(
             description=description,
             category=category,
@@ -192,19 +223,22 @@ async def create_issue(
             latitude=latitude,
             longitude=longitude,
             location=location,
-            action_plan=action_plan
+            action_plan=json.dumps(placeholder_action_plan)
         )
 
         # Offload blocking DB operations to threadpool
         await run_in_threadpool(save_issue_db, db, new_issue)
+
+        # Trigger background AI processing
+        background_tasks.add_task(process_issue_ai, new_issue.id, description, category, image_path)
 
         # Invalidate cache
         RECENT_ISSUES_CACHE["data"] = None
 
         return {
             "id": new_issue.id,
-            "message": "Issue reported successfully",
-            "action_plan": action_plan
+            "message": "Issue reported successfully. AI analysis started.",
+            "action_plan": placeholder_action_plan
         }
     except Exception as e:
         logger.error(f"Error creating issue: {e}", exc_info=True)
@@ -266,8 +300,18 @@ def get_recent_issues(db: Session = Depends(get_db)):
     # Fetch last 10 issues
     issues = db.query(Issue).order_by(Issue.created_at.desc()).limit(10).all()
     # Sanitize data (no emails)
-    data = [
-        {
+    data = []
+    for i in issues:
+        # Parse action_plan from JSON string if needed
+        action_plan_obj = i.action_plan
+        if i.action_plan and isinstance(i.action_plan, str):
+            try:
+                action_plan_obj = json.loads(i.action_plan)
+            except json.JSONDecodeError:
+                # If it's not valid JSON (legacy data?), keep as is or set to None
+                pass
+
+        data.append({
             "id": i.id,
             "category": i.category,
             "description": i.description[:100] + "..." if len(i.description) > 100 else i.description,
@@ -278,10 +322,8 @@ def get_recent_issues(db: Session = Depends(get_db)):
             "location": i.location,
             "latitude": i.latitude,
             "longitude": i.longitude,
-            "action_plan": i.action_plan
-        }
-        for i in issues
-    ]
+            "action_plan": action_plan_obj
+        })
 
     RECENT_ISSUES_CACHE["data"] = data
     RECENT_ISSUES_CACHE["timestamp"] = current_time
