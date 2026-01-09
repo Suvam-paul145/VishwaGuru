@@ -12,7 +12,6 @@ from typing import Set, Optional
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
 ALLOWED_IMAGE_MIME_TYPES: Set[str] = {
     'image/jpeg',
-    'image/jpg', 
     'image/png',
     'image/gif',
     'image/webp',
@@ -27,8 +26,7 @@ ALLOWED_IMAGE_EXTENSIONS: Set[str] = {
     '.gif',
     '.webp',
     '.bmp',
-    '.tiff',
-    '.tif'
+    '.tiff'
 }
 
 
