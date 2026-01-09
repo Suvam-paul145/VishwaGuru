@@ -26,11 +26,12 @@ from bot import run_bot
 from pothole_detection import detect_potholes
 from garbage_detection import detect_garbage
 from hf_service import detect_vandalism_clip, detect_flooding_clip, detect_infrastructure_clip
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from init_db import migrate_db
 import logging
 import time
 import httpx
+from sqlalchemy.exc import SQLAlchemyError
 
 # Configure structured logging
 logging.basicConfig(
@@ -68,8 +69,14 @@ async def lifespan(app: FastAPI):
             mla_summary_service=mla_summary_service
         )
         logger.info("AI services initialized successfully.")
+    except (ValueError, KeyError) as e:
+        logger.error(f"Configuration error initializing AI services: {e}", exc_info=True)
+        raise
+    except (httpx.HTTPError, httpx.RequestError) as e:
+        logger.error(f"Network error initializing AI services: {e}", exc_info=True)
+        raise
     except Exception as e:
-        logger.error(f"Error initializing AI services: {e}", exc_info=True)
+        logger.error(f"Unexpected error initializing AI services: {e}", exc_info=True)
         raise
 
     # Startup: Load static data to avoid first-request latency
@@ -78,8 +85,12 @@ async def lifespan(app: FastAPI):
         load_maharashtra_pincode_data()
         load_maharashtra_mla_data()
         print("Maharashtra data pre-loaded successfully.")
+    except FileNotFoundError as e:
+        logger.error(f"Data file not found during pre-loading: {e}", exc_info=True)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(f"Invalid data format during pre-loading: {e}", exc_info=True)
     except Exception as e:
-        print(f"Error pre-loading Maharashtra data: {e}")
+        logger.error(f"Unexpected error pre-loading Maharashtra data: {e}", exc_info=True)
 
     # Startup: Start Telegram Bot in background (non-blocking)
     bot_task = None
@@ -90,8 +101,12 @@ async def lifespan(app: FastAPI):
         nonlocal bot_app
         try:
             bot_app = await run_bot()
+        except (ValueError, KeyError) as e:
+            logger.error(f"Configuration error starting Telegram bot: {e}", exc_info=True)
+        except (httpx.HTTPError, httpx.RequestError) as e:
+            logger.error(f"Network error starting Telegram bot: {e}", exc_info=True)
         except Exception as e:
-            print(f"Error starting bot: {e}")
+            logger.error(f"Unexpected error starting Telegram bot: {e}", exc_info=True)
     
     # Create background task for bot initialization
     bot_task = asyncio.create_task(start_bot_background())
@@ -110,7 +125,7 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass  # Expected when cancelling
         except Exception as e:
-            print(f"Error cancelling bot task: {e}")
+            logger.error(f"Unexpected error cancelling bot task: {e}", exc_info=True)
     
     if bot_app:
         try:
@@ -118,7 +133,7 @@ async def lifespan(app: FastAPI):
             await bot_app.stop()
             await bot_app.shutdown()
         except Exception as e:
-            print(f"Error stopping bot: {e}")
+            logger.error(f"Unexpected error stopping Telegram bot: {e}", exc_info=True)
 
 app = FastAPI(title="VishwaGuru Backend", lifespan=lifespan)
 
@@ -218,8 +233,20 @@ async def create_issue(
             "message": "Issue reported successfully",
             "action_plan": action_plan_data
         }
+    except (IOError, OSError) as e:
+        logger.error(f"File system error creating issue: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to save image file")
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating issue: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to save issue to database")
+    except (httpx.HTTPError, httpx.RequestError) as e:
+        logger.error(f"Network error generating action plan: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
+    except ValueError as e:
+        logger.error(f"Validation error creating issue: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid input data")
     except Exception as e:
-        logger.error(f"Error creating issue: {e}", exc_info=True)
+        logger.error(f"Unexpected error creating issue: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/issues/{issue_id}/vote")
@@ -256,8 +283,11 @@ def get_responsibility_map():
     except FileNotFoundError:
         logger.error("Responsibility map file not found", exc_info=True)
         raise HTTPException(status_code=404, detail="Data file not found")
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in responsibility map: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Corrupted data file")
     except Exception as e:
-        logger.error(f"Error loading responsibility map: {e}", exc_info=True)
+        logger.error(f"Unexpected error loading responsibility map: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 class ChatRequest(BaseModel):
@@ -305,26 +335,35 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
-    except Exception as e:
-        logger.error(f"Invalid image file for pothole detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+    except UnidentifiedImageError as e:
+        logger.error(f"Unidentified image format for pothole detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid or unsupported image format")
+    except (IOError, OSError) as e:
+        logger.error(f"Error reading image file for pothole detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to read image file")
 
     # Run detection (blocking, so run in threadpool)
     try:
         detections = await run_in_threadpool(detect_potholes, pil_image)
         return {"detections": detections}
+    except ValueError as e:
+        logger.error(f"Invalid input for pothole detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image data for detection")
     except Exception as e:
-        logger.error(f"Pothole detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Unexpected pothole detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Detection service error")
 
 @app.post("/api/detect-infrastructure")
 async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
-    except Exception as e:
-        logger.error(f"Invalid image file for infrastructure detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+    except UnidentifiedImageError as e:
+        logger.error(f"Unidentified image format for infrastructure detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid or unsupported image format")
+    except (IOError, OSError) as e:
+        logger.error(f"Error reading image file for infrastructure detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to read image file")
 
     # Run detection (async now, so no threadpool needed for the detection call itself)
     try:
@@ -332,18 +371,27 @@ async def detect_infrastructure_endpoint(request: Request, image: UploadFile = F
         client = request.app.state.http_client
         detections = await detect_infrastructure_clip(pil_image, client=client)
         return {"detections": detections}
+    except (httpx.HTTPError, httpx.RequestError) as e:
+        logger.error(f"Network error in infrastructure detection: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Detection service temporarily unavailable")
+    except ValueError as e:
+        logger.error(f"Invalid input for infrastructure detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image data for detection")
     except Exception as e:
-        logger.error(f"Infrastructure detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Unexpected infrastructure detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Detection service error")
 
 @app.post("/api/detect-flooding")
 async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
-    except Exception as e:
-        logger.error(f"Invalid image file for flooding detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+    except UnidentifiedImageError as e:
+        logger.error(f"Unidentified image format for flooding detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid or unsupported image format")
+    except (IOError, OSError) as e:
+        logger.error(f"Error reading image file for flooding detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to read image file")
 
     # Run detection (async)
     try:
@@ -351,18 +399,27 @@ async def detect_flooding_endpoint(request: Request, image: UploadFile = File(..
         client = request.app.state.http_client
         detections = await detect_flooding_clip(pil_image, client=client)
         return {"detections": detections}
+    except (httpx.HTTPError, httpx.RequestError) as e:
+        logger.error(f"Network error in flooding detection: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Detection service temporarily unavailable")
+    except ValueError as e:
+        logger.error(f"Invalid input for flooding detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image data for detection")
     except Exception as e:
-        logger.error(f"Flooding detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Unexpected flooding detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Detection service error")
 
 @app.post("/api/detect-vandalism")
 async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
-    except Exception as e:
-        logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+    except UnidentifiedImageError as e:
+        logger.error(f"Unidentified image format for vandalism detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid or unsupported image format")
+    except (IOError, OSError) as e:
+        logger.error(f"Error reading image file for vandalism detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to read image file")
 
     # Run detection (async)
     try:
@@ -370,26 +427,38 @@ async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(.
         client = request.app.state.http_client
         detections = await detect_vandalism_clip(pil_image, client=client)
         return {"detections": detections}
+    except (httpx.HTTPError, httpx.RequestError) as e:
+        logger.error(f"Network error in vandalism detection: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Detection service temporarily unavailable")
+    except ValueError as e:
+        logger.error(f"Invalid input for vandalism detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image data for detection")
     except Exception as e:
-        logger.error(f"Vandalism detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Unexpected vandalism detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Detection service error")
 
 @app.post("/api/detect-garbage")
 async def detect_garbage_endpoint(image: UploadFile = File(...)):
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
-    except Exception as e:
-        logger.error(f"Invalid image file for garbage detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+    except UnidentifiedImageError as e:
+        logger.error(f"Unidentified image format for garbage detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid or unsupported image format")
+    except (IOError, OSError) as e:
+        logger.error(f"Error reading image file for garbage detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to read image file")
 
     # Run detection (blocking, so run in threadpool)
     try:
         detections = await run_in_threadpool(detect_garbage, pil_image)
         return {"detections": detections}
+    except ValueError as e:
+        logger.error(f"Invalid input for garbage detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image data for detection")
     except Exception as e:
-        logger.error(f"Garbage detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Unexpected garbage detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Detection service error")
 
 @app.get("/api/mh/rep-contacts")
 async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, max_length=6)):
@@ -450,8 +519,14 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
                 assembly_constituency=assembly_constituency,
                 mla_name=mla_info["mla_name"]
             )
+    except (httpx.HTTPError, httpx.RequestError) as e:
+        logger.error(f"Network error generating MLA summary: {e}", exc_info=True)
+        # Continue without description
+    except ValueError as e:
+        logger.error(f"Invalid data for MLA summary generation: {e}", exc_info=True)
+        # Continue without description
     except Exception as e:
-        print(f"Error generating MLA summary: {e}")
+        logger.error(f"Unexpected error generating MLA summary: {e}", exc_info=True)
         # Continue without description
     
     # Build response
