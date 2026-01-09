@@ -51,7 +51,7 @@ Use this checklist when deploying VishwaGuru to production.
   - `TELEGRAM_BOT_TOKEN` = `your_telegram_token`
   - `GEMINI_API_KEY` = `your_gemini_key`
   - `DATABASE_URL` = `your_neon_connection_string`
-  - `FRONTEND_URL` = `*` (update later)
+  - `FRONTEND_URL` = `http://localhost:5173` (temporary, update after frontend deployment)
 
 - [ ] Click "Create Web Service"
 - [ ] Wait for deployment (~3-5 minutes)

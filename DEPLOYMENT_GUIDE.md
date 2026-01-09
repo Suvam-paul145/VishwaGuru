@@ -91,7 +91,8 @@ Add these environment variables in the Render dashboard:
 
 **Important**: 
 - Copy the exact Neon connection string (includes `?sslmode=require` at the end)
-- Leave `FRONTEND_URL` as `*` initially, then update it after deploying the frontend
+- Set `FRONTEND_URL` to a temporary value like `http://localhost:5173` initially, then update it to your production frontend URL after deploying
+- Wildcard (`*`) is not allowed for security reasons
 - The app automatically converts `postgres://` to `postgresql://` if needed
 
 ### Step 4: Deploy
@@ -144,7 +145,7 @@ Now that you have the Netlify URL, go back to Render:
 
 1. Open your backend service settings
 2. Go to "Environment" variables
-3. Update `FRONTEND_URL` from `*` to your Netlify URL
+3. Update `FRONTEND_URL` to your Netlify URL (removing the temporary localhost value)
 4. Example: `https://your-app.netlify.app`
 5. Save changes (this will trigger a redeploy)
 

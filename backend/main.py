@@ -126,8 +126,54 @@ app = FastAPI(title="VishwaGuru Backend", lifespan=lifespan)
 # For separate frontend/backend deployment (e.g., Netlify + Render)
 # Set FRONTEND_URL environment variable to your Netlify URL
 # Example: https://your-app.netlify.app
-frontend_url = os.environ.get("FRONTEND_URL", "*")
-allowed_origins = [frontend_url] if frontend_url != "*" else ["*"]
+# For local development with multiple origins, use comma-separated values:
+# Example: http://localhost:5173,https://your-app.netlify.app
+
+def validate_and_get_cors_origins():
+    """
+    Validate and retrieve CORS origins from environment.
+    Enforces strict origin validation to prevent security vulnerabilities.
+    """
+    frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+    
+    # Reject if FRONTEND_URL is not set
+    if not frontend_url:
+        raise ValueError(
+            "FRONTEND_URL environment variable is required. "
+            "Set it to your frontend URL (e.g., https://your-app.netlify.app) "
+            "or comma-separated URLs for multiple origins."
+        )
+    
+    # Reject wildcard origins to prevent CSRF and data leakage
+    if frontend_url == "*":
+        raise ValueError(
+            "FRONTEND_URL cannot be set to '*' (wildcard). "
+            "Please specify explicit origin(s) for security. "
+            "Use comma-separated values for multiple origins if needed."
+        )
+    
+    # Support comma-separated origins for local development
+    origins = [origin.strip() for origin in frontend_url.split(",") if origin.strip()]
+    
+    # Validate that we have at least one valid origin
+    if not origins:
+        raise ValueError(
+            "FRONTEND_URL must contain at least one valid origin. "
+            "Current value results in empty origins list."
+        )
+    
+    # Check for wildcard in any origin
+    if "*" in origins:
+        raise ValueError(
+            "Wildcard origin '*' is not allowed in FRONTEND_URL. "
+            "Please specify explicit origin(s) for security."
+        )
+    
+    logger.info(f"CORS configured with allowed origins: {origins}")
+    return origins
+
+# Validate and get allowed origins
+allowed_origins = validate_and_get_cors_origins()
 
 # Allow CORS for frontend
 app.add_middleware(
