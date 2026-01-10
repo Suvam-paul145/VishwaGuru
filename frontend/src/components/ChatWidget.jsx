@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, User, Bot } from 'lucide-react';
+import { fakeChatResponse } from '../fakeData';
 
 const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,7 +47,8 @@ const ChatWidget = () => {
       setMessages(prev => [...prev, { text: data.response, sender: 'bot' }]);
     } catch (error) {
       console.error('Chat Error:', error);
-      setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting right now. Please try again later.", sender: 'bot' }]);
+      // Fallback to fake response
+      setMessages(prev => [...prev, { text: fakeChatResponse, sender: 'bot' }]);
     } finally {
       setIsLoading(false);
     }

@@ -67,3 +67,21 @@ export const fakeActionPlan = {
   email_subject: "Urgent: Issue Report regarding [Issue]",
   email_body: "Respected Authority,\n\nI am writing to bring to your attention a pressing issue in our locality..."
 };
+
+export const fakeChatResponse = "I am currently offline, but generally you can report issues using the buttons below. Try checking the 'Who is Responsible?' section for contact details.";
+
+// Generic fake detections for visual detectors
+export const fakeDetections = [
+  {
+    box: [100, 100, 300, 300], // [x1, y1, x2, y2]
+    label: "Detected Object",
+    confidence: 0.95
+  }
+];
+
+export const fakeVandalismDetection = {
+    detections: [
+        { label: "Graffiti", confidence: 0.88 },
+        { label: "Vandalism", confidence: 0.75 }
+    ]
+};

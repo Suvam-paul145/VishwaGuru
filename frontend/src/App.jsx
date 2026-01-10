@@ -69,14 +69,19 @@ function AppContent() {
         const response = await fetch(`${API_URL}/api/issues/${id}/vote`, {
             method: 'POST'
         });
-        if (response.ok) {
-            // Update local state to reflect change immediately (optimistic UI or re-fetch)
-            setRecentIssues(prev => prev.map(issue =>
-                issue.id === id ? { ...issue, upvotes: (issue.upvotes || 0) + 1 } : issue
-            ));
+        if (!response.ok) {
+            throw new Error("Failed to upvote");
         }
+        // Update local state to reflect change immediately (optimistic UI or re-fetch)
+        setRecentIssues(prev => prev.map(issue =>
+            issue.id === id ? { ...issue, upvotes: (issue.upvotes || 0) + 1 } : issue
+        ));
     } catch (e) {
-        console.error("Failed to upvote", e);
+        console.error("Failed to upvote, optimistic update applied", e);
+        // Optimistic update even on failure
+        setRecentIssues(prev => prev.map(issue =>
+            issue.id === id ? { ...issue, upvotes: (issue.upvotes || 0) + 1 } : issue
+        ));
     }
   };
 

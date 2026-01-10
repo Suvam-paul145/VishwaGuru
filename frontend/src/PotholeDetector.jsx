@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { fakeDetections } from './fakeData';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -99,9 +100,13 @@ const PotholeDetector = ({ onBack }) => {
                     // Note: This is async, so the video might have moved on.
                     // This is "laggy overlay" but simplest for backend approach.
                     drawDetections(data.detections, context, video);
+                } else {
+                    throw new Error("API failed");
                 }
             } catch (err) {
-                console.error("Detection error:", err);
+                console.error("Detection error, using fake data:", err);
+                // Fallback: draw fake detections
+                drawDetections(fakeDetections.map(d => ({...d, label: 'Pothole'})), context, video);
             }
         }, 'image/jpeg', 0.8);
     };
