@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreePine } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => (
   <div className="space-y-6">
@@ -124,6 +124,16 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
           <XCircle size={24} />
         </div>
         <span className="font-semibold text-gray-800 text-sm">Blocked Road</span>
+      </button>
+
+      <button
+        onClick={() => setView('tree')}
+        className="flex flex-col items-center justify-center bg-green-50 border-2 border-green-100 p-4 rounded-xl hover:bg-green-100 transition shadow-sm h-32"
+      >
+        <div className="bg-green-700 text-white p-3 rounded-full mb-2">
+          <TreePine size={24} />
+        </div>
+        <span className="font-semibold text-green-900 text-sm">Tree Hazard</span>
       </button>
     </div>
 
