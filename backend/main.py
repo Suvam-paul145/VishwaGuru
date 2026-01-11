@@ -135,11 +135,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="VishwaGuru Backend", lifespan=lifespan)
 
 # CORS Configuration
-# For separate frontend/backend deployment (e.g., Netlify + Render)
-# Set FRONTEND_URL environment variable to your Netlify URL
-# Example: https://your-app.netlify.app
-frontend_url = os.environ.get("FRONTEND_URL", "*")
-allowed_origins = [frontend_url] if frontend_url != "*" else ["*"]
+# Support for Firebase Hosting and local development
+# FRONTEND_URL can be a comma-separated list of allowed origins
+frontend_urls = os.environ.get("FRONTEND_URL", "*")
+if frontend_urls == "*":
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [url.strip() for url in frontend_urls.split(",")]
 
 # Allow CORS for frontend
 app.add_middleware(

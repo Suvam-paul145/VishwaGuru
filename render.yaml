@@ -18,7 +18,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false  # Must be set in Render dashboard
       - key: FRONTEND_URL
-        sync: false  # Set to your Netlify URL (e.g., https://your-app.netlify.app)
+        sync: false  # Set to your Firebase URL (e.g., https://vishwaguru-app.web.app)
       - key: DATABASE_URL
         sync: false  # Set to your Neon database connection string
     healthCheckPath: /health
