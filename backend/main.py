@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Reque
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 from database import engine, get_db
 from models import Base, Issue
 from ai_interfaces import get_ai_services, initialize_ai_services
@@ -279,7 +279,12 @@ def get_recent_issues(db: Session = Depends(get_db)):
         return cached_data
 
     # Fetch last 10 issues
-    issues = db.query(Issue).order_by(Issue.created_at.desc()).limit(10).all()
+    # Optimize: Defer loading of PII (user_email) which is not used in the response
+    # This saves bandwidth and memory by not fetching columns we don't need
+    issues = db.query(Issue).options(
+        defer(Issue.user_email)
+    ).order_by(Issue.created_at.desc()).limit(10).all()
+
     # Sanitize data (no emails)
     data = [
         {
