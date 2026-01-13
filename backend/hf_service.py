@@ -318,3 +318,81 @@ async def detect_blocked_road_clip(image: Union[Image.Image, bytes], client: htt
     except Exception as e:
         print(f"HF Detection Error: {e}")
         return []
+
+async def detect_accessibility_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    try:
+        labels = ["blocked wheelchair ramp", "stairs without ramp", "broken pavement", "inaccessible entrance", "clear ramp", "accessible entrance"]
+
+        img_bytes = _prepare_image_bytes(image)
+
+        results = await query_hf_api(img_bytes, labels, client=client)
+
+        if not isinstance(results, list):
+             return []
+
+        access_labels = ["blocked wheelchair ramp", "stairs without ramp", "broken pavement", "inaccessible entrance"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in access_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
+
+async def detect_water_leak_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    try:
+        labels = ["burst pipe", "water leakage", "leaking hydrant", "puddle", "dry street", "clean road"]
+
+        img_bytes = _prepare_image_bytes(image)
+
+        results = await query_hf_api(img_bytes, labels, client=client)
+
+        if not isinstance(results, list):
+             return []
+
+        leak_labels = ["burst pipe", "water leakage", "leaking hydrant"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in leak_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []
+
+async def detect_crowd_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    try:
+        labels = ["extremely crowded", "dense crowd", "many people", "empty street", "few people"]
+
+        img_bytes = _prepare_image_bytes(image)
+
+        results = await query_hf_api(img_bytes, labels, client=client)
+
+        if not isinstance(results, list):
+             return []
+
+        crowd_labels = ["extremely crowded", "dense crowd"]
+        detected = []
+
+        for res in results:
+            if isinstance(res, dict) and res.get('label') in crowd_labels and res.get('score', 0) > 0.4:
+                 detected.append({
+                     "label": res['label'],
+                     "confidence": res['score'],
+                     "box": []
+                 })
+        return detected
+    except Exception as e:
+        print(f"HF Detection Error: {e}")
+        return []

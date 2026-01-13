@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug, UserCheck, Users, Info } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => (
   <div className="space-y-6">
@@ -144,6 +144,36 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
           <Bug size={24} />
         </div>
         <span className="font-semibold text-amber-900 text-sm">Pest Control</span>
+      </button>
+
+      <button
+        onClick={() => setView('accessibility')}
+        className="flex flex-col items-center justify-center bg-purple-50 border-2 border-purple-100 p-4 rounded-xl hover:bg-purple-100 transition shadow-sm h-32"
+      >
+        <div className="bg-purple-600 text-white p-3 rounded-full mb-2">
+          <UserCheck size={24} />
+        </div>
+        <span className="font-semibold text-purple-900 text-sm">Accessibility</span>
+      </button>
+
+      <button
+        onClick={() => setView('water-leak')}
+        className="flex flex-col items-center justify-center bg-cyan-50 border-2 border-cyan-100 p-4 rounded-xl hover:bg-cyan-100 transition shadow-sm h-32"
+      >
+        <div className="bg-cyan-600 text-white p-3 rounded-full mb-2">
+          <Droplets size={24} />
+        </div>
+        <span className="font-semibold text-cyan-900 text-sm">Water Leak</span>
+      </button>
+
+      <button
+        onClick={() => setView('crowd')}
+        className="flex flex-col items-center justify-center bg-indigo-50 border-2 border-indigo-100 p-4 rounded-xl hover:bg-indigo-100 transition shadow-sm h-32"
+      >
+        <div className="bg-indigo-600 text-white p-3 rounded-full mb-2">
+          <Users size={24} />
+        </div>
+        <span className="font-semibold text-indigo-900 text-sm">Crowd Density</span>
       </button>
     </div>
 

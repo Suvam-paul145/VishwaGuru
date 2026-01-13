@@ -35,7 +35,10 @@ from hf_service import (
     detect_stray_animal_clip,
     detect_blocked_road_clip,
     detect_tree_hazard_clip,
-    detect_pest_clip
+    detect_pest_clip,
+    detect_accessibility_clip,
+    detect_water_leak_clip,
+    detect_crowd_clip
 )
 from PIL import Image
 from init_db import migrate_db
@@ -522,6 +525,53 @@ async def detect_pest_endpoint(request: Request, image: UploadFile = File(...)):
         logger.error(f"Pest detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@app.post("/api/detect-accessibility")
+async def detect_accessibility_endpoint(request: Request, image: UploadFile = File(...)):
+    try:
+        image_bytes = await image.read()
+    except Exception as e:
+        logger.error(f"Invalid image file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    try:
+        client = request.app.state.http_client
+        detections = await detect_accessibility_clip(image_bytes, client=client)
+        return {"detections": detections}
+    except Exception as e:
+        logger.error(f"Accessibility detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/detect-water-leak")
+async def detect_water_leak_endpoint(request: Request, image: UploadFile = File(...)):
+    try:
+        image_bytes = await image.read()
+    except Exception as e:
+        logger.error(f"Invalid image file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    try:
+        client = request.app.state.http_client
+        detections = await detect_water_leak_clip(image_bytes, client=client)
+        return {"detections": detections}
+    except Exception as e:
+        logger.error(f"Water leak detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/detect-crowd")
+async def detect_crowd_endpoint(request: Request, image: UploadFile = File(...)):
+    try:
+        image_bytes = await image.read()
+    except Exception as e:
+        logger.error(f"Invalid image file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    try:
+        client = request.app.state.http_client
+        detections = await detect_crowd_clip(image_bytes, client=client)
+        return {"detections": detections}
+    except Exception as e:
+        logger.error(f"Crowd detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/api/mh/rep-contacts")
 async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, max_length=6)):

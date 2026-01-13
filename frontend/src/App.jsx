@@ -24,6 +24,9 @@ const StrayAnimalDetector = React.lazy(() => import('./StrayAnimalDetector'));
 const BlockedRoadDetector = React.lazy(() => import('./BlockedRoadDetector'));
 const TreeDetector = React.lazy(() => import('./TreeDetector'));
 const PestDetector = React.lazy(() => import('./PestDetector'));
+const AccessibilityDetector = React.lazy(() => import('./AccessibilityDetector'));
+const WaterLeakDetector = React.lazy(() => import('./WaterLeakDetector'));
+const CrowdDetector = React.lazy(() => import('./CrowdDetector'));
 
 // Get API URL from environment variable, fallback to relative URL for local dev
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -40,7 +43,7 @@ function AppContent() {
 
   // Safe navigation helper
   const navigateToView = (view) => {
-    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest'];
+    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'accessibility', 'water-leak', 'crowd'];
     if (validViews.includes(view)) {
       navigate(view === 'home' ? '/' : `/${view}`);
     }
@@ -221,6 +224,9 @@ function AppContent() {
             <Route path="/blocked" element={<BlockedRoadDetector onBack={() => navigate('/')} />} />
             <Route path="/tree" element={<TreeDetector onBack={() => navigate('/')} />} />
             <Route path="/pest" element={<PestDetector onBack={() => navigate('/')} />} />
+            <Route path="/accessibility" element={<AccessibilityDetector onBack={() => navigate('/')} />} />
+            <Route path="/water-leak" element={<WaterLeakDetector onBack={() => navigate('/')} />} />
+            <Route path="/crowd" element={<CrowdDetector onBack={() => navigate('/')} />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
