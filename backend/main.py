@@ -14,7 +14,6 @@ from maharashtra_locator import (
     load_maharashtra_pincode_data,
     load_maharashtra_mla_data
 )
-from pydantic import BaseModel
 import json
 import os
 import shutil
@@ -87,9 +86,9 @@ async def lifespan(app: FastAPI):
         # These functions use lru_cache, so calling them once loads the data into memory
         load_maharashtra_pincode_data()
         load_maharashtra_mla_data()
-        print("Maharashtra data pre-loaded successfully.")
+        logger.info("Maharashtra data pre-loaded successfully.")
     except Exception as e:
-        print(f"Error pre-loading Maharashtra data: {e}")
+        logger.error(f"Error pre-loading Maharashtra data: {e}", exc_info=True)
 
     # Startup: Start Telegram Bot in background (non-blocking)
     bot_task = None
@@ -101,7 +100,7 @@ async def lifespan(app: FastAPI):
         try:
             bot_app = await run_bot()
         except Exception as e:
-            print(f"Error starting bot: {e}")
+            logger.error(f"Error starting bot: {e}", exc_info=True)
     
     # Create background task for bot initialization
     bot_task = asyncio.create_task(start_bot_background())
@@ -307,31 +306,35 @@ def get_recent_issues(db: Session = Depends(get_db)):
     # Convert to Pydantic models for validation and serialization
     data = []
     for i in issues:
-        # Handle action_plan JSON string
-        action_plan_val = i.action_plan
-        if isinstance(action_plan_val, str) and action_plan_val:
-            try:
-                action_plan_val = json.loads(action_plan_val)
-            except json.JSONDecodeError:
-                pass # Keep as string if not valid JSON
-
-        data.append(IssueResponse(
-            id=i.id,
-            category=i.category,
-            description=i.description[:100] + "..." if len(i.description) > 100 else i.description,
-            created_at=i.created_at,
-            image_path=i.image_path,
-            status=i.status,
-            upvotes=i.upvotes if i.upvotes is not None else 0,
-            location=i.location,
-            latitude=i.latitude,
-            longitude=i.longitude,
-            action_plan=action_plan_val
-        ).model_dump(mode='json')) # Store as JSON-compatible dict in cache
+        data.append(_serialize_issue(i))
 
     recent_issues_cache.set(data)
 
     return data
+
+def _serialize_issue(i: Issue) -> dict:
+    """Helper to serialize an Issue object to a dictionary."""
+    # Handle action_plan JSON string
+    action_plan_val = i.action_plan
+    if isinstance(action_plan_val, str) and action_plan_val:
+        try:
+            action_plan_val = json.loads(action_plan_val)
+        except json.JSONDecodeError:
+            pass # Keep as string if not valid JSON
+
+    return IssueResponse(
+        id=i.id,
+        category=i.category,
+        description=i.description[:100] + "..." if len(i.description) > 100 else i.description,
+        created_at=i.created_at,
+        image_path=i.image_path,
+        status=i.status,
+        upvotes=i.upvotes if i.upvotes is not None else 0,
+        location=i.location,
+        latitude=i.latitude,
+        longitude=i.longitude,
+        action_plan=action_plan_val
+    ).model_dump(mode='json')
 
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
@@ -361,7 +364,6 @@ async def detect_infrastructure_endpoint(request: Request, image: UploadFile = F
 
     # Run detection using unified service (local ML by default)
     try:
-        detections = await detect_infrastructure(pil_image)
         # Use shared HTTP client from app state
         client = request.app.state.http_client
         detections = await detect_infrastructure_clip(image_bytes, client=client)
@@ -381,7 +383,6 @@ async def detect_flooding_endpoint(request: Request, image: UploadFile = File(..
 
     # Run detection using unified service (local ML by default)
     try:
-        detections = await detect_flooding(pil_image)
         # Use shared HTTP client from app state
         client = request.app.state.http_client
         detections = await detect_flooding_clip(image_bytes, client=client)
@@ -401,7 +402,6 @@ async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(.
 
     # Run detection using unified service (local ML by default)
     try:
-        detections = await detect_vandalism(pil_image)
         # Use shared HTTP client from app state
         client = request.app.state.http_client
         detections = await detect_vandalism_clip(image_bytes, client=client)

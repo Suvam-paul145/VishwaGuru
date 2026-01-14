@@ -19,8 +19,9 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="google.generat
 # Configure Gemini (mandatory environment variable)
 api_key = os.environ.get("GEMINI_API_KEY")
 if not api_key:
-    raise ValueError("GEMINI_API_KEY environment variable is required but not set. Please set it in your environment variables.")
-genai.configure(api_key=api_key)
+    logger.warning("GEMINI_API_KEY environment variable is not set. AI summaries will be disabled.")
+else:
+    genai.configure(api_key=api_key)
 
 
 def _get_fallback_summary(mla_name: str, assembly_constituency: str, district: str) -> str:

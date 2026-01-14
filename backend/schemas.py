@@ -22,7 +22,7 @@ class IssueResponse(BaseModel):
     location: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    action_plan: Optional[Any] = None
+    action_plan: Optional[ActionPlan | dict] = None
 
     model_config = ConfigDict(from_attributes=True)
 

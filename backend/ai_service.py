@@ -21,10 +21,11 @@ RESPONSIBILITY_MAP_PATH = os.path.join(
 )
 
 # Configure Gemini
-# Use provided key as fallback if env var is missing
-api_key = os.environ.get("GEMINI_API_KEY", "AIzaSyB8_i3tbDE3GmX4CsQ8G3mD3pB2WrHi5C8")
+api_key = os.environ.get("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
+else:
+    logger.warning("GEMINI_API_KEY not set. AI services will be disabled.")
 
 
 @lru_cache(maxsize=1)
@@ -98,10 +99,21 @@ async def generate_action_plan(issue_description: str, category: str, image_path
 
         try:
             plan = json.loads(text_response)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             # Try to fix common JSON errors if possible, or fallback
-            logger.error(f"Gemini returned invalid JSON: {text_response}")
-            raise Exception("Invalid JSON from AI")
+            logger.error(f"Gemini returned invalid JSON: {text_response} | Error: {e}")
+
+            # Last ditch effort: Try to find the first { and last }
+            try:
+                start_idx = text_response.find('{')
+                end_idx = text_response.rfind('}')
+                if start_idx != -1 and end_idx != -1:
+                    potential_json = text_response[start_idx:end_idx+1]
+                    plan = json.loads(potential_json)
+                else:
+                    raise Exception("No JSON object found in response")
+            except Exception:
+                 raise Exception("Invalid JSON from AI")
 
         if "x_post" not in plan or not plan.get("x_post"):
             plan["x_post"] = x_post
