@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -293,9 +293,10 @@ async def chat_endpoint(request: ChatRequest):
 def get_recent_issues(db: Session = Depends(get_db)):
     cached_data = recent_issues_cache.get()
     if cached_data:
-        # Check if cached data is already serialized (list of dicts)
-        # We return JSONResponse directly to bypass FastAPI's Pydantic validation/serialization
-        # which is redundant for cached data that was already validated when stored.
+        # Check if cached data is already serialized (string)
+        if isinstance(cached_data, str):
+            return Response(content=cached_data, media_type="application/json")
+        # Fallback for legacy format (list of dicts) or if cache implementation changes
         return JSONResponse(content=cached_data)
 
     # Fetch last 10 issues
@@ -328,11 +329,13 @@ def get_recent_issues(db: Session = Depends(get_db)):
             latitude=i.latitude,
             longitude=i.longitude,
             action_plan=action_plan_val
-        ).model_dump(mode='json')) # Store as JSON-compatible dict in cache
+        ).model_dump(mode='json')) # Store as JSON-compatible dict
 
-    recent_issues_cache.set(data)
+    # Serialize to JSON string and cache
+    json_data = json.dumps(data)
+    recent_issues_cache.set(json_data)
 
-    return data
+    return Response(content=json_data, media_type="application/json")
 
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
