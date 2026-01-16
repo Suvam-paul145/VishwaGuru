@@ -39,6 +39,8 @@ from hf_service import (
     detect_tree_hazard_clip,
     detect_pest_clip,
     detect_severity_clip,
+    detect_smart_category_clip,
+    detect_waste_type_clip,
     generate_image_caption
 )
 from PIL import Image
@@ -554,6 +556,38 @@ async def detect_severity_endpoint(request: Request, image: UploadFile = File(..
         return result
     except Exception as e:
         logger.error(f"Severity detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/detect-smart-category")
+async def detect_smart_category_endpoint(request: Request, image: UploadFile = File(...)):
+    try:
+        image_bytes = await image.read()
+    except Exception as e:
+        logger.error(f"Invalid image file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    try:
+        client = request.app.state.http_client
+        result = await detect_smart_category_clip(image_bytes, client=client)
+        return result
+    except Exception as e:
+        logger.error(f"Smart category detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/detect-waste-type")
+async def detect_waste_type_endpoint(request: Request, image: UploadFile = File(...)):
+    try:
+        image_bytes = await image.read()
+    except Exception as e:
+        logger.error(f"Invalid image file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    try:
+        client = request.app.state.http_client
+        result = await detect_waste_type_clip(image_bytes, client=client)
+        return result
+    except Exception as e:
+        logger.error(f"Waste type detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

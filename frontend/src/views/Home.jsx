@@ -1,10 +1,24 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug, ScanLine, Recycle } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => (
   <div className="space-y-6">
     {/* Quick Actions Grid */}
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      {/* Smart Report Feature */}
+      <button
+        onClick={() => setView('smart-report')}
+        className="col-span-2 sm:col-span-3 flex flex-row items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 p-4 rounded-xl hover:opacity-90 transition shadow-lg h-24 text-white"
+      >
+        <div className="bg-white/20 p-3 rounded-full mr-4">
+          <ScanLine size={32} />
+        </div>
+        <div className="text-left">
+            <span className="block font-bold text-lg">Smart Report</span>
+            <span className="block text-xs opacity-90">Auto-detect issue type with AI</span>
+        </div>
+      </button>
+
       <button
         onClick={() => setView('report')}
         className="flex flex-col items-center justify-center bg-blue-50 border-2 border-blue-100 p-4 rounded-xl hover:bg-blue-100 transition shadow-sm h-32"
@@ -12,7 +26,17 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
         <div className="bg-blue-500 text-white p-3 rounded-full mb-2">
           <AlertTriangle size={24} />
         </div>
-        <span className="font-semibold text-blue-800 text-sm">Report Issue</span>
+        <span className="font-semibold text-blue-800 text-sm">Manual Report</span>
+      </button>
+
+      <button
+        onClick={() => setView('waste-classifier')}
+        className="flex flex-col items-center justify-center bg-green-50 border-2 border-green-100 p-4 rounded-xl hover:bg-green-100 transition shadow-sm h-32"
+      >
+        <div className="bg-green-600 text-white p-3 rounded-full mb-2">
+          <Recycle size={24} />
+        </div>
+        <span className="font-semibold text-green-800 text-sm">Waste Analysis</span>
       </button>
 
       <button

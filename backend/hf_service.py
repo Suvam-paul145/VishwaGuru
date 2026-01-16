@@ -94,6 +94,83 @@ async def generate_image_caption(image: Union[Image.Image, bytes], client: httpx
         logger.error(f"HF Caption Generation Error: {e}")
         return None
 
+async def detect_smart_category_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    """
+    Detects the most likely category for the image from a list of civic issues.
+    """
+    try:
+        labels = [
+            "pothole", "garbage", "vandalism", "fire", "flooding",
+            "broken streetlight", "stray animal", "blocked road",
+            "illegal parking", "fallen tree", "pest infestation",
+            "normal street", "safe environment"
+        ]
+
+        img_bytes = _prepare_image_bytes(image)
+        results = await query_hf_api(img_bytes, labels, client=client)
+
+        if not isinstance(results, list) or not results:
+             return {"category": "unknown", "confidence": 0}
+
+        # Sort results
+        results.sort(key=lambda x: x.get('score', 0), reverse=True)
+        top_result = results[0]
+
+        # Map labels to frontend routes/categories
+        category_map = {
+            "pothole": "pothole",
+            "garbage": "garbage",
+            "vandalism": "vandalism",
+            "graffiti": "vandalism",
+            "fire": "fire",
+            "flooding": "flood",
+            "waterlogging": "flood",
+            "broken streetlight": "streetlight",
+            "stray animal": "animal",
+            "blocked road": "blocked",
+            "illegal parking": "parking",
+            "fallen tree": "tree",
+            "pest infestation": "pest",
+            "normal street": "normal",
+            "safe environment": "normal"
+        }
+
+        detected_category = category_map.get(top_result['label'], "unknown")
+
+        return {
+            "category": detected_category,
+            "raw_label": top_result['label'],
+            "confidence": top_result['score']
+        }
+    except Exception as e:
+        logger.error(f"Smart Detection Error: {e}")
+        return {"category": "error", "error": str(e)}
+
+async def detect_waste_type_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    """
+    Classifies waste type (plastic, organic, etc.).
+    """
+    try:
+        labels = ["plastic waste", "organic food waste", "paper waste", "metal cans", "glass bottles", "hazardous waste", "mixed garbage", "clean area"]
+
+        img_bytes = _prepare_image_bytes(image)
+        results = await query_hf_api(img_bytes, labels, client=client)
+
+        if not isinstance(results, list) or not results:
+             return {"waste_type": "unknown", "confidence": 0}
+
+        results.sort(key=lambda x: x.get('score', 0), reverse=True)
+        top_result = results[0]
+
+        return {
+            "waste_type": top_result['label'],
+            "confidence": top_result['score'],
+            "breakdown": results[:3] # Return top 3 for chart
+        }
+    except Exception as e:
+        logger.error(f"Waste Type Detection Error: {e}")
+        return {"waste_type": "error", "error": str(e)}
+
 async def detect_vandalism_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
     """
     Detects vandalism/graffiti using Zero-Shot Image Classification with CLIP (Async).
