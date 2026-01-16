@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -49,6 +49,7 @@ import httpx
 from cache import recent_issues_cache
 from typing import List
 from schemas import IssueResponse, IssueCreateResponse, DetectionResponse, ActionPlan, ChatRequest
+from background_tasks import generate_and_save_action_plan
 
 # Configure structured logging
 logging.basicConfig(
@@ -188,6 +189,7 @@ def save_issue_db(db: Session, issue: Issue):
 
 @app.post("/api/issues")
 async def create_issue(
+    background_tasks: BackgroundTasks,
     description: str = Form(...),
     category: str = Form(...),
     user_email: str = Form(None),
@@ -210,12 +212,8 @@ async def create_issue(
             # Offload blocking file I/O to threadpool
             await run_in_threadpool(save_file_blocking, image.file, image_path)
 
-        # Generate Action Plan (AI)
-        ai_services = get_ai_services()
-        action_plan_data = await ai_services.action_plan_service.generate_action_plan(description, category, image_path)
-
-        # Serialize action plan to JSON string for storage
-        action_plan_json = json.dumps(action_plan_data) if action_plan_data else None
+        # Action Plan generation is now handled in background to avoid blocking
+        action_plan_json = None
 
         # Save to DB
         new_issue = Issue(
@@ -233,13 +231,22 @@ async def create_issue(
         # Offload blocking DB operations to threadpool
         await run_in_threadpool(save_issue_db, db, new_issue)
 
+        # Trigger background task for AI analysis
+        background_tasks.add_task(
+            generate_and_save_action_plan,
+            new_issue.id,
+            description,
+            category,
+            image_path
+        )
+
         # Invalidate cache
         recent_issues_cache.invalidate()
 
         return IssueCreateResponse(
             id=new_issue.id,
-            message="Issue reported successfully",
-            action_plan=action_plan_data
+            message="Issue reported successfully. Action plan is being generated.",
+            action_plan=None
         )
     except Exception as e:
         logger.error(f"Error creating issue: {e}", exc_info=True)
@@ -288,6 +295,33 @@ async def chat_endpoint(request: ChatRequest):
     ai_services = get_ai_services()
     response = await ai_services.chat_service.chat(request.query)
     return {"response": response}
+
+@app.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    action_plan_val = issue.action_plan
+    if isinstance(action_plan_val, str) and action_plan_val:
+        try:
+            action_plan_val = json.loads(action_plan_val)
+        except json.JSONDecodeError:
+            pass
+
+    return IssueResponse(
+        id=issue.id,
+        category=issue.category,
+        description=issue.description,
+        created_at=issue.created_at,
+        image_path=issue.image_path,
+        status=issue.status,
+        upvotes=issue.upvotes if issue.upvotes is not None else 0,
+        location=issue.location,
+        latitude=issue.latitude,
+        longitude=issue.longitude,
+        action_plan=action_plan_val
+    )
 
 @app.get("/api/issues/recent", response_model=List[IssueResponse])
 def get_recent_issues(db: Session = Depends(get_db)):

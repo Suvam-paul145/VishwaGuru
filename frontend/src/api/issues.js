@@ -16,6 +16,10 @@ export const issuesApi = {
     return await apiClient.postForm('/api/issues', formData);
   },
 
+  getById: async (id) => {
+    return await apiClient.get(`/api/issues/${id}`);
+  },
+
   vote: async (id) => {
     return await apiClient.post(`/api/issues/${id}/vote`, {}); // The backend endpoint might not require a body for upvote
   }

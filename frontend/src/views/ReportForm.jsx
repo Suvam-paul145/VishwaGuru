@@ -5,7 +5,7 @@ import { Camera, Image as ImageIcon } from 'lucide-react';
 // Get API URL from environment variable, fallback to relative URL for local dev
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) => {
+const ReportForm = ({ setView, setLoading, setError, setActionPlan, setCurrentIssueId, loading }) => {
   const [formData, setFormData] = useState({
     description: '',
     category: 'road',
@@ -130,7 +130,9 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
       if (!response.ok) throw new Error('Failed to submit issue');
 
       const data = await response.json();
-      setActionPlan(data.action_plan);
+      // Action plan is generated asynchronously
+      setCurrentIssueId(data.id);
+      setActionPlan(null);
       setView('action');
     } catch (err) {
       console.error("Submission failed, using fake action plan", err);

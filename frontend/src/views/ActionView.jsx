@@ -1,8 +1,45 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import StatusTracker from '../components/StatusTracker';
+import { issuesApi } from '../api/issues';
 
-const ActionView = ({ actionPlan, setView }) => {
-  if (!actionPlan) return null;
+const ActionView = ({ actionPlan, issueId, setActionPlan, setView }) => {
+  const [polling, setPolling] = useState(false);
+
+  useEffect(() => {
+    if (actionPlan) return;
+    if (!issueId) return;
+
+    setPolling(true);
+    const interval = setInterval(async () => {
+        try {
+            const issue = await issuesApi.getById(issueId);
+            if (issue.action_plan) {
+                setActionPlan(issue.action_plan);
+                setPolling(false);
+                clearInterval(interval);
+            }
+        } catch (e) {
+            console.error("Polling error", e);
+        }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [actionPlan, issueId, setActionPlan]);
+
+  if (!actionPlan) {
+      return (
+        <div className="mt-6 text-center space-y-6">
+            <StatusTracker currentStep={2} />
+            <div className="p-8 bg-blue-50 rounded-xl border border-blue-100">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h2 className="text-xl font-bold text-blue-800 mb-2">Analyzing Issue...</h2>
+                <p className="text-blue-600">Our AI is analyzing the details and generating an action plan. This usually takes a few seconds.</p>
+                {issueId && <p className="text-xs text-gray-400 mt-4">Issue ID: {issueId}</p>}
+            </div>
+             <button onClick={() => setView('home')} className="text-blue-600 underline text-center w-full block">Back to Home</button>
+        </div>
+      );
+  }
 
   return (
     <div className="mt-6 space-y-6">
