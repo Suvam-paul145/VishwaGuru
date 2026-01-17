@@ -373,9 +373,9 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
 
 @app.post("/api/detect-infrastructure")
 async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
-    # Read bytes directly from UploadFile to avoid PIL overhead
+    # Optimize image loading: stream directly to PIL instead of reading all bytes first
     try:
-        image_bytes = await image.read()
+        pil_image = await run_in_threadpool(Image.open, image.file)
     except Exception as e:
         logger.error(f"Invalid image file for infrastructure detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -392,9 +392,9 @@ async def detect_infrastructure_endpoint(request: Request, image: UploadFile = F
 
 @app.post("/api/detect-flooding")
 async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
-    # Read bytes directly from UploadFile to avoid PIL overhead
+    # Optimize image loading: stream directly to PIL instead of reading all bytes first
     try:
-        image_bytes = await image.read()
+        pil_image = await run_in_threadpool(Image.open, image.file)
     except Exception as e:
         logger.error(f"Invalid image file for flooding detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
@@ -411,9 +411,9 @@ async def detect_flooding_endpoint(request: Request, image: UploadFile = File(..
 
 @app.post("/api/detect-vandalism")
 async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
-    # Read bytes directly from UploadFile to avoid PIL overhead
+    # Optimize image loading: stream directly to PIL instead of reading all bytes first
     try:
-        image_bytes = await image.read()
+        pil_image = await run_in_threadpool(Image.open, image.file)
     except Exception as e:
         logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
