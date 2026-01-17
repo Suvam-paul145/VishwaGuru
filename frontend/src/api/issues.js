@@ -18,5 +18,16 @@ export const issuesApi = {
 
   vote: async (id) => {
     return await apiClient.post(`/api/issues/${id}/vote`, {}); // The backend endpoint might not require a body for upvote
+  },
+
+  getById: async (id) => {
+    try {
+      return await apiClient.get(`/api/issues/${id}`);
+    } catch (error) {
+      console.warn(`Failed to fetch issue ${id}, using fake data if available`, error);
+      // Fallback logic could be complex here, for now just return null or throw
+      // The component handles null/loading
+      return null;
+    }
   }
 };

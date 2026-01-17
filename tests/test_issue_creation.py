@@ -44,10 +44,19 @@ def test_create_issue():
         print(f"Response: {response.json()}")
 
         assert response.status_code == 200
-        assert response.json()["message"] == "Issue reported successfully"
+        assert response.json()["message"] == "Issue reported successfully. Action plan is being generated..."
         assert "action_plan" in response.json()
-        assert response.json()["action_plan"].get("x_post")
-        assert "@mybmc" in response.json()["action_plan"]["x_post"]
+        assert response.json()["action_plan"] is None
+
+        # Optionally poll to check if it gets generated, but TestClient might be synchronous for BackgroundTasks
+        # so let's check by fetching the issue
+        issue_id = response.json()["id"]
+        response_get = client.get(f"/api/issues/{issue_id}")
+        assert response_get.status_code == 200
+        action_plan = response_get.json().get("action_plan")
+        assert action_plan is not None
+        assert action_plan.get("x_post")
+        assert "@mybmc" in action_plan["x_post"]
     finally:
         os.remove(tmp_path)
 

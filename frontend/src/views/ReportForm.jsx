@@ -6,7 +6,7 @@ import { useLocation } from 'react-router-dom';
 // Get API URL from environment variable, fallback to relative URL for local dev
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) => {
+const ReportForm = ({ setView, setLoading, setError, setActionPlan, setCurrentIssueId, loading }) => {
   const locationState = useLocation().state || {};
   const [formData, setFormData] = useState({
     description: locationState.description || '',
@@ -133,6 +133,9 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
 
       const data = await response.json();
       setActionPlan(data.action_plan);
+      if (data.id && setCurrentIssueId) {
+          setCurrentIssueId(data.id);
+      }
       setView('action');
     } catch (err) {
       console.error("Submission failed, using fake action plan", err);

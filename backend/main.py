@@ -1,10 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from database import engine, get_db
+from database import engine, get_db, SessionLocal
 from models import Base, Issue
 from ai_interfaces import get_ai_services, initialize_ai_services
 from ai_factory import create_all_ai_services
@@ -184,8 +184,45 @@ def save_issue_db(db: Session, issue: Issue):
     db.refresh(issue)
     return issue
 
+async def process_action_plan_background(issue_id: int, description: str, category: str, image_path: str):
+    """
+    Background task to generate action plan and update the issue in DB.
+    """
+    db = SessionLocal()
+    try:
+        # Generate Action Plan (AI)
+        ai_services = get_ai_services()
+        action_plan_data = await ai_services.action_plan_service.generate_action_plan(description, category, image_path)
+
+        # Serialize action plan to JSON string for storage
+        action_plan_json = json.dumps(action_plan_data) if action_plan_data else None
+
+        # Update Issue in DB
+        issue = db.query(Issue).filter(Issue.id == issue_id).first()
+        if issue:
+            issue.action_plan = action_plan_json
+            db.commit()
+
+            # Update Cache if the issue is in it
+            cached_data = recent_issues_cache.get()
+            if cached_data:
+                updated_cache = []
+                for item in cached_data:
+                    if item['id'] == issue_id:
+                        item['action_plan'] = action_plan_data
+                    updated_cache.append(item)
+                recent_issues_cache.set(updated_cache)
+
+        logger.info(f"Background action plan generation completed for issue {issue_id}")
+
+    except Exception as e:
+        logger.error(f"Error in background action plan generation for issue {issue_id}: {e}", exc_info=True)
+    finally:
+        db.close()
+
 @app.post("/api/issues")
 async def create_issue(
+    background_tasks: BackgroundTasks,
     description: str = Form(...),
     category: str = Form(...),
     user_email: str = Form(None),
@@ -208,14 +245,7 @@ async def create_issue(
             # Offload blocking file I/O to threadpool
             await run_in_threadpool(save_file_blocking, image.file, image_path)
 
-        # Generate Action Plan (AI)
-        ai_services = get_ai_services()
-        action_plan_data = await ai_services.action_plan_service.generate_action_plan(description, category, image_path)
-
-        # Serialize action plan to JSON string for storage
-        action_plan_json = json.dumps(action_plan_data) if action_plan_data else None
-
-        # Save to DB
+        # Save to DB (Initial save without action plan)
         new_issue = Issue(
             description=description,
             category=category,
@@ -225,11 +255,20 @@ async def create_issue(
             latitude=latitude,
             longitude=longitude,
             location=location,
-            action_plan=action_plan_json
+            action_plan=None
         )
 
         # Offload blocking DB operations to threadpool
         saved_issue = await run_in_threadpool(save_issue_db, db, new_issue)
+
+        # Schedule background task for AI generation
+        background_tasks.add_task(
+            process_action_plan_background,
+            saved_issue.id,
+            description,
+            category,
+            image_path
+        )
 
         # Optimistically update cache to avoid DB query on next homepage load
         cached_data = recent_issues_cache.get()
@@ -246,7 +285,7 @@ async def create_issue(
                 location=saved_issue.location,
                 latitude=saved_issue.latitude,
                 longitude=saved_issue.longitude,
-                action_plan=action_plan_data
+                action_plan=None # Initially None in cache too
             ).model_dump(mode='json')
 
             # Prepend to cache and keep top 10
@@ -258,8 +297,8 @@ async def create_issue(
 
         return IssueCreateResponse(
             id=new_issue.id,
-            message="Issue reported successfully",
-            action_plan=action_plan_data
+            message="Issue reported successfully. Action plan is being generated...",
+            action_plan=None
         )
     except Exception as e:
         logger.error(f"Error creating issue: {e}", exc_info=True)
@@ -280,6 +319,34 @@ def upvote_issue(issue_id: int, db: Session = Depends(get_db)):
     db.refresh(issue)
 
     return {"id": issue.id, "upvotes": issue.upvotes, "message": "Upvoted successfully"}
+
+@app.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    # Handle action_plan JSON string
+    action_plan_val = issue.action_plan
+    if isinstance(action_plan_val, str) and action_plan_val:
+        try:
+            action_plan_val = json.loads(action_plan_val)
+        except json.JSONDecodeError:
+            pass
+
+    return IssueResponse(
+        id=issue.id,
+        category=issue.category,
+        description=issue.description,
+        created_at=issue.created_at,
+        image_path=issue.image_path,
+        status=issue.status,
+        upvotes=issue.upvotes if issue.upvotes is not None else 0,
+        location=issue.location,
+        latitude=issue.latitude,
+        longitude=issue.longitude,
+        action_plan=action_plan_val
+    )
 
 @lru_cache(maxsize=1)
 def _load_responsibility_map():

@@ -1,8 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import StatusTracker from '../components/StatusTracker';
+import { issuesApi } from '../api/issues';
 
-const ActionView = ({ actionPlan, setView }) => {
-  if (!actionPlan) return null;
+const ActionView = ({ actionPlan, setActionPlan, issueId, setView }) => {
+  const [polling, setPolling] = useState(false);
+
+  useEffect(() => {
+    // If we have an issueId but no actionPlan, poll for it
+    if (!actionPlan && issueId) {
+      setPolling(true);
+      const interval = setInterval(async () => {
+        try {
+          const issue = await issuesApi.getById(issueId);
+          if (issue && issue.action_plan) {
+            setActionPlan(issue.action_plan);
+            setPolling(false);
+            clearInterval(interval);
+          }
+        } catch (e) {
+          console.error("Polling failed", e);
+        }
+      }, 2000); // Poll every 2 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [actionPlan, issueId, setActionPlan]);
+
+  if (!actionPlan) {
+      if (polling) {
+        return (
+            <div className="mt-6 space-y-6 text-center">
+                 <StatusTracker currentStep={2} /> {/* step 2 is "Analyzed", waiting for Plan */}
+                 <div className="p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <h3 className="text-xl font-semibold text-gray-700">Generating Action Plan...</h3>
+                    <p className="text-gray-500 mt-2">Our AI is drafting the perfect complaint for you.</p>
+                 </div>
+            </div>
+        );
+      }
+      return null;
+  }
 
   return (
     <div className="mt-6 space-y-6">

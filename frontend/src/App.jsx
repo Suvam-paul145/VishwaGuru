@@ -32,6 +32,7 @@ function AppContent() {
   const navigate = useNavigate();
   const [responsibilityMap, setResponsibilityMap] = useState(null);
   const [actionPlan, setActionPlan] = useState(null);
+  const [currentIssueId, setCurrentIssueId] = useState(null);
   const [maharashtraRepInfo, setMaharashtraRepInfo] = useState(null);
   const [recentIssues, setRecentIssues] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -148,6 +149,7 @@ function AppContent() {
                   setLoading={setLoading}
                   setError={setError}
                   setActionPlan={setActionPlan}
+                  setCurrentIssueId={setCurrentIssueId}
                   loading={loading}
                 />
               }
@@ -157,6 +159,8 @@ function AppContent() {
               element={
                 <ActionView
                   actionPlan={actionPlan}
+                  setActionPlan={setActionPlan}
+                  issueId={currentIssueId}
                   setView={navigateToView}
                 />
               }
