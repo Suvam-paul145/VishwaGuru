@@ -21,6 +21,7 @@ token = os.environ.get("HF_TOKEN")
 headers = {"Authorization": f"Bearer {token}"} if token else {}
 API_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32"
 CAPTION_API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+ASR_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3-turbo"
 
 async def query_hf_api(image_bytes, labels, client=None):
     """
@@ -98,6 +99,37 @@ async def generate_image_caption(image: Union[Image.Image, bytes], client: httpx
 
     except Exception as e:
         logger.error(f"HF Caption Generation Error: {e}")
+        return None
+
+async def transcribe_audio_clip(audio_bytes: bytes, client: httpx.AsyncClient = None):
+    """
+    Transcribes audio using OpenAI Whisper model via HF API.
+    """
+    try:
+        # For audio, we send raw bytes
+
+        async def _make_asr_request(c):
+             # Header for audio
+             # Note: HF API usually accepts raw bytes in body for audio models
+             response = await c.post(ASR_API_URL, headers=headers, content=audio_bytes, timeout=30.0)
+             if response.status_code != 200:
+                 logger.error(f"HF ASR API Error: {response.status_code} - {response.text}")
+                 return None
+             return response.json()
+
+        if client:
+            result = await _make_asr_request(client)
+        else:
+            async with httpx.AsyncClient() as new_client:
+                result = await _make_asr_request(new_client)
+
+        # Result format for ASR is usually {"text": "transcribed text"}
+        if isinstance(result, dict) and 'text' in result:
+            return result['text']
+        return None
+
+    except Exception as e:
+        logger.error(f"HF ASR Error: {e}")
         return None
 
 async def detect_vandalism_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):

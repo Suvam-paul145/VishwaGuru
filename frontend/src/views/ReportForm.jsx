@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { fakeActionPlan } from '../fakeData';
-import { Camera, Image as ImageIcon } from 'lucide-react';
+import { Camera, Image as ImageIcon, Mic, Square } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 // Get API URL from environment variable, fallback to relative URL for local dev
@@ -20,6 +20,71 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
   const [severity, setSeverity] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [describing, setDescribing] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+
+  const startRecording = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        chunksRef.current = [];
+
+        mediaRecorderRef.current.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                chunksRef.current.push(e.data);
+            }
+        };
+
+        mediaRecorderRef.current.onstop = async () => {
+            const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+            await handleAudioUpload(blob);
+            stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorderRef.current.start();
+        setRecording(true);
+    } catch (err) {
+        console.error("Error accessing microphone:", err);
+        setError("Could not access microphone.");
+    }
+  };
+
+  const stopRecording = () => {
+      if (mediaRecorderRef.current && recording) {
+          mediaRecorderRef.current.stop();
+          setRecording(false);
+      }
+  };
+
+  const handleAudioUpload = async (audioBlob) => {
+      setTranscribing(true);
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      try {
+          const response = await fetch(`${API_URL}/api/transcribe-audio`, {
+              method: 'POST',
+              body: formData
+          });
+          if (response.ok) {
+              const data = await response.json();
+              if (data.text) {
+                  setFormData(prev => ({
+                      ...prev,
+                      description: (prev.description ? prev.description + ' ' : '') + data.text
+                  }));
+              }
+          } else {
+              console.error("Transcription failed");
+          }
+      } catch (e) {
+          console.error("Audio upload failed", e);
+      } finally {
+          setTranscribing(false);
+      }
+  };
 
   const autoDescribe = async () => {
       if (!formData.image) return;
@@ -168,14 +233,37 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Description</label>
-            <textarea
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-              rows="3"
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              placeholder="Describe the issue..."
-            />
+            <div className="relative">
+                <textarea
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border pb-10"
+                  rows="3"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="Describe the issue..."
+                />
+                <div className="absolute bottom-2 right-2 flex gap-2">
+                    <button
+                        type="button"
+                        onClick={recording ? stopRecording : startRecording}
+                        className={`p-2 rounded-full transition-all duration-200 ${
+                            recording
+                            ? 'bg-red-500 text-white animate-pulse'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                        title={recording ? "Stop recording" : "Record voice note"}
+                    >
+                        {recording ? <Square size={16} fill="currentColor" /> : <Mic size={16} />}
+                    </button>
+                </div>
+            </div>
+
+            {transcribing && (
+                <div className="text-xs text-blue-600 mt-1 animate-pulse">
+                    Transcribing audio...
+                </div>
+            )}
+
             {formData.image && (
                 <button
                     type="button"

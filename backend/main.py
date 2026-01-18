@@ -67,7 +67,8 @@ from backend.hf_service import (
     detect_pest_clip,
     detect_severity_clip,
     generate_image_caption,
-    detect_smart_scan_clip
+    detect_smart_scan_clip,
+    transcribe_audio_clip
 )
 
 
@@ -653,6 +654,25 @@ async def generate_description_endpoint(request: Request, image: UploadFile = Fi
         return {"description": description}
     except Exception as e:
         logger.error(f"Description generation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/transcribe-audio")
+async def transcribe_audio_endpoint(request: Request, audio: UploadFile = File(...)):
+    try:
+        audio_bytes = await audio.read()
+    except Exception as e:
+        logger.error(f"Invalid audio file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid audio file")
+
+    try:
+        client = request.app.state.http_client
+        text = await transcribe_audio_clip(audio_bytes, client=client)
+        if not text:
+            return {"text": "", "error": "Could not transcribe audio"}
+        return {"text": text}
+    except Exception as e:
+        logger.error(f"Audio transcription error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
