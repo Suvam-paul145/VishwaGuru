@@ -5,14 +5,14 @@ from functools import lru_cache
 from typing import Optional
 import logging
 
-import google.generativeai as genai
+from google import genai
 from async_lru import alru_cache
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Suppress deprecation warnings from google.generativeai
-warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
+# Suppress deprecation warnings from google.generativeai if any (not needed for google-genai)
+# warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 
 RESPONSIBILITY_MAP_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
@@ -23,8 +23,9 @@ RESPONSIBILITY_MAP_PATH = os.path.join(
 # Configure Gemini
 # Use provided key as fallback if env var is missing
 api_key = os.environ.get("GEMINI_API_KEY", "AIzaSyB8_i3tbDE3GmX4CsQ8G3mD3pB2WrHi5C8")
+client = None
 if api_key:
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
 
 @lru_cache(maxsize=1)
@@ -58,7 +59,7 @@ async def generate_action_plan(issue_description: str, category: str, image_path
     """
     x_post = build_x_post(issue_description, category)
 
-    if not api_key:
+    if not client:
         return {
             "whatsapp": f"Hello, I would like to report a {category} issue: {issue_description}",
             "email_subject": f"Complaint regarding {category}",
@@ -67,9 +68,6 @@ async def generate_action_plan(issue_description: str, category: str, image_path
         }
 
     try:
-        # Use Gemini 1.5 Flash for faster response times
-        model = genai.GenerativeModel('gemini-1.5-flash')
-
         prompt = f"""
         You are a civic action assistant. A user has reported a civic issue.
         Category: {category}
@@ -85,7 +83,10 @@ async def generate_action_plan(issue_description: str, category: str, image_path
         Do not use markdown code blocks. Just the raw JSON string.
         """
 
-        response = await model.generate_content_async(prompt)
+        response = await client.aio.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         text_response = response.text.strip()
 
         # Cleanup if markdown code blocks are returned
@@ -122,12 +123,10 @@ async def chat_with_civic_assistant(query: str) -> str:
     """
     Chat with the civic assistant.
     """
-    if not api_key:
+    if not client:
         return "I am currently offline. Please try again later."
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-
         prompt = f"""
         You are VishwaGuru, a helpful civic assistant for Indian citizens.
         User Query: {query}
@@ -137,7 +136,10 @@ async def chat_with_civic_assistant(query: str) -> str:
         Keep answers concise and helpful.
         """
 
-        response = await model.generate_content_async(prompt)
+        response = await client.aio.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         logger.error(f"Gemini Chat Error: {e}")

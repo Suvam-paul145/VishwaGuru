@@ -10,6 +10,7 @@ Issue #76: Create a Local Machine Learning model
 
 import os
 import logging
+import asyncio
 from typing import List, Dict, Optional
 from PIL import Image
 from enum import Enum
@@ -52,14 +53,10 @@ class UnifiedDetectionService:
             return self._local_available
         
         try:
-            from local_ml_service import get_local_model
-            model = get_local_model()
+            from local_ml_service import get_general_model
+            model = get_general_model()
             
-            # Try a simple classification to verify
-            test_image = Image.new("RGB", (224, 224), color="white")
-            model.classify_image(test_image, ["test"], threshold=0.0)
-            
-            self._local_available = model.is_available
+            self._local_available = model is not None
             return self._local_available
             
         except Exception as e:
@@ -172,7 +169,7 @@ class UnifiedDetectionService:
     
     async def detect_all(self, image: Image.Image) -> Dict[str, List[Dict]]:
         """
-        Run all detection types on an image.
+        Run all detection types on an image in parallel.
         
         Args:
             image: PIL Image to analyze
@@ -180,10 +177,18 @@ class UnifiedDetectionService:
         Returns:
             Dictionary mapping detection type to list of results
         """
+        vandalism_task = self.detect_vandalism(image)
+        infrastructure_task = self.detect_infrastructure(image)
+        flooding_task = self.detect_flooding(image)
+
+        vandalism, infrastructure, flooding = await asyncio.gather(
+            vandalism_task, infrastructure_task, flooding_task
+        )
+
         return {
-            "vandalism": await self.detect_vandalism(image),
-            "infrastructure": await self.detect_infrastructure(image),
-            "flooding": await self.detect_flooding(image)
+            "vandalism": vandalism,
+            "infrastructure": infrastructure,
+            "flooding": flooding
         }
     
     async def get_status(self) -> Dict:
@@ -209,14 +214,6 @@ class UnifiedDetectionService:
             },
             "active_backend": await self._get_detection_backend()
         }
-        
-        # Add local model details if available
-        if local_available:
-            try:
-                from local_ml_service import get_model_status
-                status["local_backend"]["details"] = get_model_status()
-            except Exception:
-                pass
         
         return status
 

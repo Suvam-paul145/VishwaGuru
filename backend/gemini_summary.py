@@ -4,7 +4,7 @@ Gemini Summary Service for Maharashtra MLA Information
 Uses Gemini AI to generate human-readable summaries about MLAs and their roles.
 """
 import os
-import google.generativeai as genai
+from google import genai
 from typing import Dict, Optional
 import warnings
 from async_lru import alru_cache
@@ -13,17 +13,15 @@ import logging
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Suppress deprecation warnings from google.generativeai
-warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
+# Suppress deprecation warnings if any (likely not needed for new SDK)
+# warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 
 # Configure Gemini (optional for local / mock mode)
 api_key = os.environ.get("GEMINI_API_KEY")
 
+client = None
 if api_key:
-    genai.configure(api_key=api_key)
-else:
-    # Gemini disabled (mock/local mode)
-    genai = None
+    client = genai.Client(api_key=api_key)
 
 def _get_fallback_summary(mla_name: str, assembly_constituency: str, district: str) -> str:
     """
@@ -63,10 +61,10 @@ async def generate_mla_summary(
     Returns:
         A short paragraph describing the MLA's role and responsibilities
     """
-    try:
-        # Use Gemini 1.5 Flash for faster response times
-        model = genai.GenerativeModel('gemini-1.5-flash')
+    if not client:
+        return _get_fallback_summary(mla_name, assembly_constituency, district)
 
+    try:
         issue_context = f" particularly regarding {issue_category} issues" if issue_category else ""
         
         prompt = f"""
@@ -79,7 +77,10 @@ async def generate_mla_summary(
         Keep it factual, helpful, and encouraging for civic engagement.
         """
         
-        response = await model.generate_content_async(prompt)
+        response = await client.aio.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         return response.text.strip()
         
     except Exception as e:
