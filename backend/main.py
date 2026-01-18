@@ -416,18 +416,16 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
 
 @app.post("/api/detect-infrastructure")
 async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
-    # Read bytes directly from UploadFile to avoid PIL overhead
     try:
-        image_bytes = await image.read()
+        pil_image = await run_in_threadpool(Image.open, image.file)
     except Exception as e:
         logger.error(f"Invalid image file for infrastructure detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
 
     # Run detection using unified service (local ML by default)
     try:
-        # Use shared HTTP client from app state
         client = request.app.state.http_client
-        detections = await detect_infrastructure_local(pil_image, client=client)
+        detections = await detect_infrastructure(pil_image, client=client)
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Infrastructure detection error: {e}", exc_info=True)
@@ -435,18 +433,16 @@ async def detect_infrastructure_endpoint(request: Request, image: UploadFile = F
 
 @app.post("/api/detect-flooding")
 async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
-    # Read bytes directly from UploadFile to avoid PIL overhead
     try:
-        image_bytes = await image.read()
+        pil_image = await run_in_threadpool(Image.open, image.file)
     except Exception as e:
         logger.error(f"Invalid image file for flooding detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
 
     # Run detection using unified service (local ML by default)
     try:
-        # Use shared HTTP client from app state
         client = request.app.state.http_client
-        detections = await detect_flooding_local(pil_image, client=client)
+        detections = await detect_flooding(pil_image, client=client)
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Flooding detection error: {e}", exc_info=True)
@@ -454,18 +450,16 @@ async def detect_flooding_endpoint(request: Request, image: UploadFile = File(..
 
 @app.post("/api/detect-vandalism")
 async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
-    # Read bytes directly from UploadFile to avoid PIL overhead
     try:
-        image_bytes = await image.read()
+        pil_image = await run_in_threadpool(Image.open, image.file)
     except Exception as e:
         logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
 
     # Run detection using unified service (local ML by default)
     try:
-        # Use shared HTTP client from app state
         client = request.app.state.http_client
-        detections = await detect_vandalism_local(pil_image, client=client)
+        detections = await detect_vandalism(pil_image, client=client)
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Vandalism detection error: {e}", exc_info=True)

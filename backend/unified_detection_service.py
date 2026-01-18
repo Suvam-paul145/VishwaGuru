@@ -98,12 +98,13 @@ class UnifiedDetectionService:
             else:
                 return None
     
-    async def detect_vandalism(self, image: Image.Image) -> List[Dict]:
+    async def detect_vandalism(self, image: Image.Image, client=None) -> List[Dict]:
         """
         Detect vandalism in an image.
         
         Args:
             image: PIL Image to analyze
+            client: Optional HTTP client for HF API
             
         Returns:
             List of detections with 'label', 'confidence', and 'box' keys
@@ -116,18 +117,19 @@ class UnifiedDetectionService:
         
         elif backend == "huggingface":
             from hf_service import detect_vandalism_clip
-            return await detect_vandalism_clip(image)
+            return await detect_vandalism_clip(image, client=client)
         
         else:
             logger.error("No detection backend available")
             return []
     
-    async def detect_infrastructure(self, image: Image.Image) -> List[Dict]:
+    async def detect_infrastructure(self, image: Image.Image, client=None) -> List[Dict]:
         """
         Detect infrastructure damage in an image.
         
         Args:
             image: PIL Image to analyze
+            client: Optional HTTP client for HF API
             
         Returns:
             List of detections with 'label', 'confidence', and 'box' keys
@@ -140,18 +142,19 @@ class UnifiedDetectionService:
         
         elif backend == "huggingface":
             from hf_service import detect_infrastructure_clip
-            return await detect_infrastructure_clip(image)
+            return await detect_infrastructure_clip(image, client=client)
         
         else:
             logger.error("No detection backend available")
             return []
     
-    async def detect_flooding(self, image: Image.Image) -> List[Dict]:
+    async def detect_flooding(self, image: Image.Image, client=None) -> List[Dict]:
         """
         Detect flooding/waterlogging in an image.
         
         Args:
             image: PIL Image to analyze
+            client: Optional HTTP client for HF API
             
         Returns:
             List of detections with 'label', 'confidence', and 'box' keys
@@ -164,7 +167,7 @@ class UnifiedDetectionService:
         
         elif backend == "huggingface":
             from hf_service import detect_flooding_clip
-            return await detect_flooding_clip(image)
+            return await detect_flooding_clip(image, client=client)
         
         else:
             logger.error("No detection backend available")
@@ -234,19 +237,19 @@ def get_detection_service() -> UnifiedDetectionService:
 
 
 # Convenience functions that use the default service
-async def detect_vandalism(image: Image.Image) -> List[Dict]:
+async def detect_vandalism(image: Image.Image, client=None) -> List[Dict]:
     """Detect vandalism using the default service."""
-    return await get_detection_service().detect_vandalism(image)
+    return await get_detection_service().detect_vandalism(image, client=client)
 
 
-async def detect_infrastructure(image: Image.Image) -> List[Dict]:
+async def detect_infrastructure(image: Image.Image, client=None) -> List[Dict]:
     """Detect infrastructure damage using the default service."""
-    return await get_detection_service().detect_infrastructure(image)
+    return await get_detection_service().detect_infrastructure(image, client=client)
 
 
-async def detect_flooding(image: Image.Image) -> List[Dict]:
+async def detect_flooding(image: Image.Image, client=None) -> List[Dict]:
     """Detect flooding using the default service."""
-    return await get_detection_service().detect_flooding(image)
+    return await get_detection_service().detect_flooding(image, client=client)
 
 
 async def detect_all(image: Image.Image) -> Dict[str, List[Dict]]:
