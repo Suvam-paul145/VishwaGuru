@@ -26,6 +26,7 @@ from backend.init_db import migrate_db
 from backend.models import Issue
 from backend.schemas import IssueResponse, ChatRequest, IssueCreateResponse, ActionPlan
 from backend.ai_service import generate_action_plan, chat_with_civic_assistant
+from backend.cache import recent_issues_cache
 from backend.ai_factory import create_all_ai_services
 from backend.ai_interfaces import initialize_ai_services, get_ai_services
 from backend.maharashtra_locator import load_maharashtra_pincode_data, load_maharashtra_mla_data, find_constituency_by_pincode, find_mla_by_constituency
@@ -164,12 +165,6 @@ def validate_image_for_processing(image: Image.Image, max_width: int = 4096, max
                 detail="Unable to process image format. Please try a different image."
             )
 
-# Simple in-memory cache
-RECENT_ISSUES_CACHE = {
-    "data": None,
-    "timestamp": 0,
-    "ttl": 60  # seconds
-}
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -395,6 +390,37 @@ async def create_issue(
 
         # Offload blocking DB operations to threadpool
         await run_in_threadpool(save_issue_db, db, new_issue)
+
+        # Optimistic Cache Update
+        # Update the cache immediately to reflect the new issue without invalidation
+        current_cache = recent_issues_cache.get()
+        if current_cache:
+            try:
+                # Create IssueResponse dictionary for the new issue
+                new_issue_dict = IssueResponse(
+                    id=new_issue.id,
+                    category=new_issue.category,
+                    description=new_issue.description[:100] + "..." if len(new_issue.description) > 100 else new_issue.description,
+                    created_at=new_issue.created_at,
+                    image_path=new_issue.image_path,
+                    status=new_issue.status,
+                    upvotes=new_issue.upvotes if new_issue.upvotes is not None else 0,
+                    location=new_issue.location,
+                    latitude=new_issue.latitude,
+                    longitude=new_issue.longitude,
+                    action_plan=None
+                ).model_dump(mode='json')
+
+                # Prepend to list and keep max 10
+                updated_cache = [new_issue_dict] + current_cache
+                if len(updated_cache) > 10:
+                    updated_cache = updated_cache[:10]
+
+                recent_issues_cache.set(updated_cache)
+            except Exception as e:
+                # Log error but don't fail the request if cache update fails
+                logger.error(f"Error updating cache optimistically: {e}")
+
     except Exception as e:
         # Clean up uploaded file if DB save failed
         if image_path and os.path.exists(image_path):
