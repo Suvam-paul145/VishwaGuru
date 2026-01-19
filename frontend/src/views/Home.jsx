@@ -202,9 +202,21 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
           recentIssues.map((issue) => (
             <div key={issue.id} className="p-3 hover:bg-gray-50 transition">
               <div className="flex justify-between items-start">
-                <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 mb-1 capitalize">
-                  {issue.category}
-                </span>
+                <div className="flex gap-2 mb-1">
+                  <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+                    {issue.category}
+                  </span>
+                  {issue.urgency && (
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold capitalize border ${
+                      issue.urgency === 'Critical' ? 'bg-red-100 text-red-800 border-red-200' :
+                      issue.urgency === 'High' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                      issue.urgency === 'Medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                      'bg-blue-100 text-blue-800 border-blue-200'
+                    }`}>
+                      {issue.urgency}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                       onClick={() => handleUpvote(issue.id)}

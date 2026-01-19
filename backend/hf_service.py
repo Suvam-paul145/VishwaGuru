@@ -10,6 +10,8 @@ import httpx
 from PIL import Image
 import asyncio
 import logging
+import base64
+from typing import Union
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,7 @@ token = os.environ.get("HF_TOKEN")
 headers = {"Authorization": f"Bearer {token}"} if token else {}
 API_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32"
 CAPTION_API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+URGENCY_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
 
 async def query_hf_api(image_bytes, labels, client=None):
     """
@@ -39,14 +42,10 @@ async def _make_request(client, image_bytes, labels):
         }
     }
 
-        try:
-            response = await client.post(API_URL, headers=headers, json=payload, timeout=20.0)
-            if response.status_code != 200:
-                logger.error(f"HF API Error: {response.status_code} - {response.text}")
-                return []
-            return response.json()
-        except Exception as e:
-            logger.error(f"HF API Request Exception: {e}")
+    try:
+        response = await client.post(API_URL, headers=headers, json=payload, timeout=20.0)
+        if response.status_code != 200:
+            logger.error(f"HF API Error: {response.status_code} - {response.text}")
             return []
         return response.json()
     except Exception as e:
@@ -130,6 +129,50 @@ async def detect_vandalism_clip(image: Union[Image.Image, bytes], client: httpx.
     except Exception as e:
         logger.error(f"HF Detection Error: {e}")
         return []
+
+async def analyze_urgency(text: str, client: httpx.AsyncClient = None) -> str:
+    """
+    Analyzes the urgency of the issue description using Zero-Shot Classification.
+    Returns: 'Critical', 'High', 'Medium', 'Low', or 'Informational'
+    """
+    try:
+        labels = ["Critical Emergency", "High Urgency", "Medium Urgency", "Low Urgency", "Informational"]
+
+        payload = {
+            "inputs": text,
+            "parameters": {
+                "candidate_labels": labels
+            }
+        }
+
+        async def _make_urgency_request(c):
+             response = await c.post(URGENCY_API_URL, headers=headers, json=payload, timeout=10.0)
+             if response.status_code != 200:
+                 logger.error(f"HF Urgency API Error: {response.status_code} - {response.text}")
+                 return None
+             return response.json()
+
+        if client:
+            result = await _make_urgency_request(client)
+        else:
+            async with httpx.AsyncClient() as new_client:
+                result = await _make_urgency_request(new_client)
+
+        # Result format: {'labels': [...], 'scores': [...]}
+        if isinstance(result, dict) and 'labels' in result and len(result['labels']) > 0:
+            top_label = result['labels'][0]
+            # Map back to simple levels
+            if "Critical" in top_label: return "Critical"
+            if "High" in top_label: return "High"
+            if "Medium" in top_label: return "Medium"
+            if "Low" in top_label: return "Low"
+            return "Informational"
+
+        return "Medium" # Default fallback
+
+    except Exception as e:
+        logger.error(f"Urgency Analysis Error: {e}")
+        return "Medium" # Default fallback
 
 async def detect_pest_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
     try:

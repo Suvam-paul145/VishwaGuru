@@ -10,7 +10,23 @@ from functools import lru_cache
 from typing import List
 from datetime import datetime, timedelta
 from PIL import Image
+from backend.hf_service import analyze_urgency
+from backend.database import Base, engine, get_db
+from backend.models import Issue
+from backend.schemas import IssueResponse, ChatRequest
+from backend.init_db import migrate_db
+from backend.ai_service import generate_action_plan, chat_with_civic_assistant
+from backend.ai_factory import create_all_ai_services
+from backend.ai_interfaces import initialize_ai_services, get_ai_services
+from backend.maharashtra_locator import load_maharashtra_pincode_data, load_maharashtra_mla_data, find_constituency_by_pincode, find_mla_by_constituency
+from backend.pothole_detection import detect_potholes
+from backend.garbage_detection import detect_garbage
+from backend.local_ml_service import detect_infrastructure_local, detect_flooding_local, detect_vandalism_local
+from backend.unified_detection_service import get_detection_status
+from backend.bot import run_bot
+from backend.cache import recent_issues_cache
 
+import httpx
 import json
 import os
 import shutil
@@ -307,6 +323,7 @@ def save_issue_db(db: Session, issue: Issue):
 
 @app.post("/api/issues")
 async def create_issue(
+    request: Request,
     description: str = Form(...),
     category: str = Form(...),
     user_email: str = Form(None),
@@ -340,6 +357,13 @@ async def create_issue(
         logger.error(f"Unexpected error during file processing: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
+    # Analyze Urgency (AI)
+    try:
+        urgency_level = await analyze_urgency(description, client=request.app.state.http_client)
+    except Exception as e:
+        logger.error(f"Urgency analysis failed: {e}")
+        urgency_level = "Medium"
+
     try:
         # Save to DB
         new_issue = Issue(
@@ -351,7 +375,8 @@ async def create_issue(
             latitude=latitude,
             longitude=longitude,
             location=location,
-            action_plan=action_plan_json
+            action_plan=None,
+            urgency=urgency_level
         )
 
         # Offload blocking DB operations to threadpool
@@ -466,7 +491,8 @@ def get_recent_issues(db: Session = Depends(get_db)):
             location=i.location,
             latitude=i.latitude,
             longitude=i.longitude,
-            action_plan=action_plan_val
+            action_plan=action_plan_val,
+            urgency=i.urgency
         ).model_dump(mode='json')) # Store as JSON-compatible dict in cache
 
     recent_issues_cache.set(data)

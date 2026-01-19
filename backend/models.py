@@ -19,3 +19,4 @@ class Issue(Base):
     longitude = Column(Float, nullable=True)
     location = Column(String, nullable=True)
     action_plan = Column(Text, nullable=True)
+    urgency = Column(String, nullable=True)  # 'Critical', 'High', 'Medium', 'Low'
