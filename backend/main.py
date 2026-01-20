@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.concurrency import run_in_threadpool
@@ -24,6 +24,7 @@ import httpx
 from backend.database import engine, Base, SessionLocal, get_db
 from backend.init_db import migrate_db
 from backend.models import Issue
+from backend.cache import recent_issues_cache
 from backend.schemas import IssueResponse, ChatRequest, IssueCreateResponse, ActionPlan
 from backend.ai_service import generate_action_plan, chat_with_civic_assistant
 from backend.ai_factory import create_all_ai_services
@@ -163,13 +164,6 @@ def validate_image_for_processing(image: Image.Image, max_width: int = 4096, max
                 status_code=400,
                 detail="Unable to process image format. Please try a different image."
             )
-
-# Simple in-memory cache
-RECENT_ISSUES_CACHE = {
-    "data": None,
-    "timestamp": 0,
-    "ttl": 60  # seconds
-}
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -466,10 +460,8 @@ async def chat_endpoint(request: ChatRequest):
 def get_recent_issues(db: Session = Depends(get_db)):
     cached_data = recent_issues_cache.get()
     if cached_data:
-        # Check if cached data is already serialized (list of dicts)
-        # We return JSONResponse directly to bypass FastAPI's Pydantic validation/serialization
-        # which is redundant for cached data that was already validated when stored.
-        return JSONResponse(content=cached_data)
+        # Return pre-serialized JSON directly, bypassing Pydantic validation and JSON encoding
+        return Response(content=cached_data, media_type="application/json")
 
     # Fetch last 10 issues
     issues = db.query(Issue).order_by(Issue.created_at.desc()).limit(10).all()
@@ -501,11 +493,14 @@ def get_recent_issues(db: Session = Depends(get_db)):
             latitude=i.latitude,
             longitude=i.longitude,
             action_plan=action_plan_val
-        ).model_dump(mode='json')) # Store as JSON-compatible dict in cache
+        ).model_dump(mode='json'))
 
-    recent_issues_cache.set(data)
+    # Serialize to JSON string once and cache it
+    # This saves serialization cost on subsequent cache hits
+    json_data = json.dumps(data, default=str)
+    recent_issues_cache.set(json_data)
 
-    return data
+    return Response(content=json_data, media_type="application/json")
 
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
