@@ -20,6 +20,7 @@ token = os.environ.get("HF_TOKEN")
 headers = {"Authorization": f"Bearer {token}"} if token else {}
 API_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32"
 CAPTION_API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+AUDIO_API_URL = "https://api-inference.huggingface.co/models/mit/ast-finetuned-audioset-10-10-0.4593"
 
 async def query_hf_api(image_bytes, labels, client=None):
     """
@@ -187,3 +188,23 @@ async def detect_smart_scan_clip(image, client=None):
     targets = labels[:-1]
     results = await _detect_clip_generic(image, labels, targets, client)
     return {"detections": results}
+
+async def detect_audio_scene(audio_bytes, client=None):
+    """
+    Detects the scene/event in an audio clip using Hugging Face Inference API.
+    """
+    try:
+        if client:
+             response = await client.post(AUDIO_API_URL, headers=headers, content=audio_bytes, timeout=30.0)
+        else:
+             async with httpx.AsyncClient() as new_client:
+                 response = await new_client.post(AUDIO_API_URL, headers=headers, content=audio_bytes, timeout=30.0)
+
+        if response.status_code != 200:
+             logger.error(f"HF Audio API Error: {response.status_code} - {response.text}")
+             return []
+
+        return response.json()
+    except Exception as e:
+        logger.error(f"HF Audio Detection Error: {e}")
+        return []

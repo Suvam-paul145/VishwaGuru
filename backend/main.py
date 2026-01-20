@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -39,7 +40,8 @@ from backend.unified_detection_service import get_detection_status
 from backend.hf_service import (
     detect_illegal_parking_clip, detect_street_light_clip, detect_fire_clip,
     detect_stray_animal_clip, detect_blocked_road_clip, detect_tree_hazard_clip,
-    detect_pest_clip, detect_severity_clip, detect_smart_scan_clip, generate_image_caption
+    detect_pest_clip, detect_severity_clip, detect_smart_scan_clip, generate_image_caption,
+    detect_audio_scene
 )
 
 # Configure structured logging
@@ -462,6 +464,22 @@ async def chat_endpoint(request: ChatRequest):
         logger.error(f"Chat service error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Chat service temporarily unavailable")
 
+@app.get("/api/stats")
+def get_stats(db: Session = Depends(get_db)):
+    try:
+        # Simple stats: Count by category
+        stats = db.query(Issue.category, func.count(Issue.id)).group_by(Issue.category).all()
+        # stats is a list of tuples: [('pothole', 10), ('garbage', 5)]
+
+        return {
+            "by_category": [{"category": s[0] if s[0] else "uncategorized", "count": s[1]} for s in stats],
+            "total": sum(s[1] for s in stats)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching stats: {e}", exc_info=True)
+        # Return empty stats on error to avoid breaking UI
+        return {"by_category": [], "total": 0}
+
 @app.get("/api/issues/recent", response_model=List[IssueResponse])
 def get_recent_issues(db: Session = Depends(get_db)):
     cached_data = recent_issues_cache.get()
@@ -779,6 +797,23 @@ async def detect_smart_scan_endpoint(request: Request, image: UploadFile = File(
         return result
     except Exception as e:
         logger.error(f"Smart scan detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/detect-audio")
+async def detect_audio_endpoint(request: Request, audio: UploadFile = File(...)):
+    try:
+        audio_bytes = await audio.read()
+    except Exception as e:
+        logger.error(f"Invalid audio file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid audio file")
+
+    try:
+        client = request.app.state.http_client
+        detections = await detect_audio_scene(audio_bytes, client=client)
+        return {"detections": detections}
+    except Exception as e:
+        logger.error(f"Audio detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

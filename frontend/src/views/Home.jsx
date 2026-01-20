@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug, Scan, ChevronRight } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug, Scan, ChevronRight, Volume2, BarChart } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => {
   const totalImpact = 1240 + (recentIssues ? recentIssues.length : 0);
@@ -177,9 +177,19 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
         </div>
         <span className="font-semibold text-amber-900 text-sm">Pest Control</span>
       </button>
+
+      <button
+        onClick={() => setView('noise')}
+        className="flex flex-col items-center justify-center bg-teal-50 border-2 border-teal-100 p-4 rounded-xl hover:bg-teal-100 transition shadow-sm h-32"
+      >
+        <div className="bg-teal-600 text-white p-3 rounded-full mb-2">
+          <Volume2 size={24} />
+        </div>
+        <span className="font-semibold text-teal-800 text-sm">Noise</span>
+      </button>
     </div>
 
-    <div className="grid grid-cols-1 mt-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
        <button
         onClick={fetchResponsibilityMap}
         className="flex flex-row items-center justify-center bg-green-50 border-2 border-green-100 p-4 rounded-xl hover:bg-green-100 transition shadow-sm h-16"
@@ -188,6 +198,16 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
           <MapPin size={20} />
         </div>
         <span className="font-semibold text-green-800">Who is Responsible?</span>
+      </button>
+
+      <button
+        onClick={() => setView('stats')}
+        className="flex flex-row items-center justify-center bg-purple-50 border-2 border-purple-100 p-4 rounded-xl hover:bg-purple-100 transition shadow-sm h-16"
+      >
+        <div className="bg-purple-500 text-white p-2 rounded-full mr-3">
+          <BarChart size={20} />
+        </div>
+        <span className="font-semibold text-purple-800">City Stats</span>
       </button>
     </div>
 
