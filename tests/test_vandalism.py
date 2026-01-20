@@ -15,12 +15,15 @@ def test_read_main(client):
     assert response.status_code == 200
     assert response.json()["service"] == "VishwaGuru API"
 
+@patch("backend.main.validate_uploaded_file")
 @patch("backend.main.detect_vandalism_local", new_callable=AsyncMock)
 @patch("backend.main.run_in_threadpool")
 @patch("backend.main.Image.open")
-def test_detect_vandalism_new(mock_image_open, mock_run, mock_detect_vandalism, client):
+def test_detect_vandalism_new(mock_image_open, mock_run, mock_detect_vandalism, mock_validate, client):
     # Mock Image.open to return a valid object (mock)
     mock_image = MagicMock()
+    mock_image.size = (100, 100)
+    mock_image.mode = "RGB"
     mock_image_open.return_value = mock_image
 
     # Mock image content

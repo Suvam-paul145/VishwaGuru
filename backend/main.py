@@ -164,12 +164,8 @@ def validate_image_for_processing(image: Image.Image, max_width: int = 4096, max
                 detail="Unable to process image format. Please try a different image."
             )
 
-# Simple in-memory cache
-RECENT_ISSUES_CACHE = {
-    "data": None,
-    "timestamp": 0,
-    "ttl": 60  # seconds
-}
+# Import shared cache
+from backend.cache import recent_issues_cache
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -183,7 +179,7 @@ async def process_action_plan_background(issue_id: int, description: str, catego
         # Update issue in DB
         issue = db.query(Issue).filter(Issue.id == issue_id).first()
         if issue:
-            issue.action_plan = json.dumps(action_plan)
+            issue.action_plan = action_plan
             db.commit()
     except Exception as e:
         logger.error(f"Background action plan generation failed for issue {issue_id}: {e}", exc_info=True)
@@ -333,6 +329,63 @@ async def ml_status():
         "ml_service": status
     }
 
+from typing import Callable, Optional
+
+async def process_and_detect(
+    image: UploadFile,
+    detector_func: Callable,
+    client: Optional[httpx.AsyncClient] = None
+):
+    """
+    Helper function to handle image validation, loading, and detection.
+    """
+    # Validate uploaded file
+    validate_uploaded_file(image)
+
+    # Convert to PIL Image directly from file object to save memory
+    try:
+        pil_image = await run_in_threadpool(Image.open, image.file)
+        # Validate image for processing
+        validate_image_for_processing(pil_image)
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions from validation
+    except Exception as e:
+        logger.error(f"Invalid image file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # Run detection
+    try:
+        if client:
+            detections = await detector_func(pil_image, client=client)
+        else:
+            detections = await run_in_threadpool(detector_func, pil_image)
+        return {"detections": detections}
+    except Exception as e:
+        logger.error(f"Detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+
+async def process_upload_and_run(
+    image: UploadFile,
+    service_func: Callable,
+    **kwargs
+):
+    """
+    Helper for processing file uploads and running a service function that accepts bytes.
+    """
+    validate_uploaded_file(image)
+    try:
+        image.file.seek(0)
+        image_bytes = await image.read()
+    except Exception as e:
+        logger.error(f"Invalid image file: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    try:
+        return await service_func(image_bytes, **kwargs)
+    except Exception as e:
+        logger.error(f"Service error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 def save_file_blocking(file_obj, path):
     with open(path, "wb") as buffer:
         shutil.copyfileobj(file_obj, buffer)
@@ -462,6 +515,34 @@ async def chat_endpoint(request: ChatRequest):
         logger.error(f"Chat service error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Chat service temporarily unavailable")
 
+@app.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    # Handle action_plan deserialization if needed
+    action_plan_val = issue.action_plan
+    if isinstance(action_plan_val, str) and action_plan_val:
+        try:
+            action_plan_val = json.loads(action_plan_val)
+        except json.JSONDecodeError:
+            pass
+
+    return IssueResponse(
+        id=issue.id,
+        category=issue.category,
+        description=issue.description,
+        created_at=issue.created_at,
+        image_path=issue.image_path,
+        status=issue.status,
+        upvotes=issue.upvotes if issue.upvotes is not None else 0,
+        location=issue.location,
+        latitude=issue.latitude,
+        longitude=issue.longitude,
+        action_plan=action_plan_val
+    )
+
 @app.get("/api/issues/recent", response_model=List[IssueResponse])
 def get_recent_issues(db: Session = Depends(get_db)):
     cached_data = recent_issues_cache.get()
@@ -509,296 +590,113 @@ def get_recent_issues(db: Session = Depends(get_db)):
 
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        validate_image_for_processing(pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for pothole detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection (blocking, so run in threadpool)
-    try:
-        detections = await run_in_threadpool(detect_potholes, pil_image)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Pothole detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+    return await process_and_detect(image, detect_potholes)
 
 @app.post("/api/detect-infrastructure")
-async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        validate_image_for_processing(pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for infrastructure detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection using unified service (local ML by default)
-    try:
-        # Use shared HTTP client from app state
-        client = request.app.state.http_client
-        detections = await detect_infrastructure_local(pil_image, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Infrastructure detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
+    return await process_and_detect(image, detect_infrastructure_local, client=request.app.state.http_client)
 
 @app.post("/api/detect-flooding")
-async def detect_flooding_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        validate_image_for_processing(pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for flooding detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection using unified service (local ML by default)
-    try:
-        # Use shared HTTP client from app state
-        client = request.app.state.http_client
-        detections = await detect_flooding_local(pil_image, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Flooding detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
+    return await process_and_detect(image, detect_flooding_local, client=request.app.state.http_client)
 
 @app.post("/api/detect-vandalism")
-async def detect_vandalism_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        validate_image_for_processing(pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection using unified service (local ML by default)
-    try:
-        # Use shared HTTP client from app state
-        client = request.app.state.http_client
-        detections = await detect_vandalism_local(pil_image, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Vandalism detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
+    return await process_and_detect(image, detect_vandalism_local, client=request.app.state.http_client)
 
 @app.post("/api/detect-garbage")
 async def detect_garbage_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        validate_image_for_processing(pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for garbage detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection (blocking, so run in threadpool)
-    try:
-        detections = await run_in_threadpool(detect_garbage, pil_image)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Garbage detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+    return await process_and_detect(image, detect_garbage)
 
 @app.post("/api/detect-illegal-parking")
 async def detect_illegal_parking_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        detections = await detect_illegal_parking_clip(image_bytes, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Illegal parking detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    detections = await process_upload_and_run(
+        image,
+        detect_illegal_parking_clip,
+        client=request.app.state.http_client
+    )
+    return {"detections": detections}
 
 @app.post("/api/detect-street-light")
 async def detect_street_light_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        detections = await detect_street_light_clip(image_bytes, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Street light detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    detections = await process_upload_and_run(
+        image,
+        detect_street_light_clip,
+        client=request.app.state.http_client
+    )
+    return {"detections": detections}
 
 @app.post("/api/detect-fire")
 async def detect_fire_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        detections = await detect_fire_clip(image_bytes, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Fire detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    detections = await process_upload_and_run(
+        image,
+        detect_fire_clip,
+        client=request.app.state.http_client
+    )
+    return {"detections": detections}
 
 @app.post("/api/detect-stray-animal")
 async def detect_stray_animal_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        detections = await detect_stray_animal_clip(image_bytes, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Stray animal detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    detections = await process_upload_and_run(
+        image,
+        detect_stray_animal_clip,
+        client=request.app.state.http_client
+    )
+    return {"detections": detections}
 
 @app.post("/api/detect-blocked-road")
 async def detect_blocked_road_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        detections = await detect_blocked_road_clip(image_bytes, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Blocked road detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+    detections = await process_upload_and_run(
+        image,
+        detect_blocked_road_clip,
+        client=request.app.state.http_client
+    )
+    return {"detections": detections}
 
 @app.post("/api/detect-tree-hazard")
 async def detect_tree_hazard_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        detections = await detect_tree_hazard_clip(image_bytes, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Tree hazard detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+    detections = await process_upload_and_run(
+        image,
+        detect_tree_hazard_clip,
+        client=request.app.state.http_client
+    )
+    return {"detections": detections}
 
 @app.post("/api/detect-pest")
 async def detect_pest_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        detections = await detect_pest_clip(image_bytes, client=client)
-        return {"detections": detections}
-    except Exception as e:
-        logger.error(f"Pest detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+    detections = await process_upload_and_run(
+        image,
+        detect_pest_clip,
+        client=request.app.state.http_client
+    )
+    return {"detections": detections}
 
 @app.post("/api/detect-severity")
 async def detect_severity_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        result = await detect_severity_clip(image_bytes, client=client)
-        return result
-    except Exception as e:
-        logger.error(f"Severity detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+    return await process_upload_and_run(
+        image,
+        detect_severity_clip,
+        client=request.app.state.http_client
+    )
 
 @app.post("/api/detect-smart-scan")
 async def detect_smart_scan_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        result = await detect_smart_scan_clip(image_bytes, client=client)
-        return result
-    except Exception as e:
-        logger.error(f"Smart scan detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+    return await process_upload_and_run(
+        image,
+        detect_smart_scan_clip,
+        client=request.app.state.http_client
+    )
 
 @app.post("/api/generate-description")
 async def generate_description_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = request.app.state.http_client
-        description = await generate_image_caption(image_bytes, client=client)
-        if not description:
-            return {"description": "", "error": "Could not generate description"}
-        return {"description": description}
-    except Exception as e:
-        logger.error(f"Description generation error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    description = await process_upload_and_run(
+        image,
+        generate_image_caption,
+        client=request.app.state.http_client
+    )
+    if not description:
+        return {"description": "", "error": "Could not generate description"}
+    return {"description": description}
 
 
 @app.get("/api/mh/rep-contacts")

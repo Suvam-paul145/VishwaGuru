@@ -55,7 +55,7 @@ def test_create_issue():
         assert issue.action_plan is not None
 
         # Parse action plan
-        plan = json.loads(issue.action_plan)
+        plan = issue.action_plan
         assert plan.get("x_post")
         # Check if fallback or actual response
         # assert "@mybmc" in plan["x_post"]

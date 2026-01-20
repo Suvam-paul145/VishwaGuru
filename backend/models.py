@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text, JSON
 from backend.database import Base
 
 import datetime
@@ -18,4 +18,4 @@ class Issue(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     location = Column(String, nullable=True)
-    action_plan = Column(Text, nullable=True)
+    action_plan = Column(JSON, nullable=True)

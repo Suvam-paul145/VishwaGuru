@@ -12,11 +12,9 @@ const ActionView = ({ actionPlan, setActionPlan, setView }) => {
     if (actionPlan.status === 'generating' && actionPlan.id) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`${API_URL}/api/issues/recent`);
+          const res = await fetch(`${API_URL}/api/issues/${actionPlan.id}`);
           if (res.ok) {
-            const data = await res.json();
-            // Find the issue by ID
-            const issue = data.find(i => i.id === actionPlan.id);
+            const issue = await res.json();
             if (issue && issue.action_plan && issue.action_plan.whatsapp) {
                // Plan is ready!
                setActionPlan(issue.action_plan);
