@@ -1,7 +1,22 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text, JSON
+from sqlalchemy.types import TypeDecorator
 from backend.database import Base
-
+import json
 import datetime
+
+class JSONEncodedDict(TypeDecorator):
+    """Represents an immutable structure as a json-encoded string."""
+    impl = Text
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return json.loads(value)
 
 class Issue(Base):
     __tablename__ = "issues"
@@ -18,4 +33,4 @@ class Issue(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     location = Column(String, nullable=True)
-    action_plan = Column(Text, nullable=True)
+    action_plan = Column(JSONEncodedDict, nullable=True)
