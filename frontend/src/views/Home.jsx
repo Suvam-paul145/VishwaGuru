@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug, Scan, ChevronRight } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush, Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug, Scan, ChevronRight, Users, Accessibility } from 'lucide-react';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => {
   const totalImpact = 1240 + (recentIssues ? recentIssues.length : 0);
@@ -176,6 +176,26 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
           <Bug size={24} />
         </div>
         <span className="font-semibold text-amber-900 text-sm">Pest Control</span>
+      </button>
+
+      <button
+        onClick={() => setView('accessibility')}
+        className="flex flex-col items-center justify-center bg-blue-50 border-2 border-blue-100 p-4 rounded-xl hover:bg-blue-100 transition shadow-sm h-32"
+      >
+        <div className="bg-blue-600 text-white p-3 rounded-full mb-2">
+          <Accessibility size={24} />
+        </div>
+        <span className="font-semibold text-blue-800 text-sm">Accessibility</span>
+      </button>
+
+      <button
+        onClick={() => setView('crowd')}
+        className="flex flex-col items-center justify-center bg-purple-50 border-2 border-purple-100 p-4 rounded-xl hover:bg-purple-100 transition shadow-sm h-32"
+      >
+        <div className="bg-purple-600 text-white p-3 rounded-full mb-2">
+          <Users size={24} />
+        </div>
+        <span className="font-semibold text-purple-800 text-sm">Crowd Density</span>
       </button>
     </div>
 

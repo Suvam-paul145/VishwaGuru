@@ -187,3 +187,13 @@ async def detect_smart_scan_clip(image, client=None):
     targets = labels[:-1]
     results = await _detect_clip_generic(image, labels, targets, client)
     return {"detections": results}
+
+async def detect_accessibility_clip(image, client=None):
+    labels = ["blocked wheelchair ramp", "broken elevator", "no sidewalk", "stairs without ramp", "accessible path", "clear sidewalk"]
+    targets = ["blocked wheelchair ramp", "broken elevator", "no sidewalk", "stairs without ramp"]
+    return await _detect_clip_generic(image, labels, targets, client)
+
+async def detect_crowd_clip(image, client=None):
+    labels = ["extremely crowded", "crowded", "moderate crowd", "few people", "empty"]
+    targets = ["extremely crowded", "crowded", "moderate crowd"]
+    return await _detect_clip_generic(image, labels, targets, client)
