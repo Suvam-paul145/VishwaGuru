@@ -114,11 +114,8 @@ def validate_image_for_processing(image: Image.Image, max_width: int = 4096, max
         HTTPException: If image validation fails
     """
     try:
-        # Verify image integrity (checks for corruption)
-        image.verify()
-        
-        # Re-open image after verify() closes it
-        image.seek(0)
+        # Load image to verify integrity (checks for corruption)
+        # We skip image.verify() because it closes the file pointer which causes issues
         if hasattr(image, 'load'):
             image.load()
             
@@ -516,7 +513,7 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
         # Validate image for processing
-        validate_image_for_processing(pil_image)
+        await run_in_threadpool(validate_image_for_processing, pil_image)
     except HTTPException:
         raise  # Re-raise HTTP exceptions from validation
     except Exception as e:
@@ -532,7 +529,7 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
 
 @app.post("/api/detect-infrastructure")
-async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
+async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
     
@@ -540,7 +537,7 @@ async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
         # Validate image for processing
-        validate_image_for_processing(pil_image)
+        await run_in_threadpool(validate_image_for_processing, pil_image)
     except HTTPException:
         raise  # Re-raise HTTP exceptions from validation
     except Exception as e:
@@ -558,7 +555,7 @@ async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
 
 @app.post("/api/detect-flooding")
-async def detect_flooding_endpoint(image: UploadFile = File(...)):
+async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
     
@@ -566,7 +563,7 @@ async def detect_flooding_endpoint(image: UploadFile = File(...)):
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
         # Validate image for processing
-        validate_image_for_processing(pil_image)
+        await run_in_threadpool(validate_image_for_processing, pil_image)
     except HTTPException:
         raise  # Re-raise HTTP exceptions from validation
     except Exception as e:
@@ -584,7 +581,7 @@ async def detect_flooding_endpoint(image: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
 
 @app.post("/api/detect-vandalism")
-async def detect_vandalism_endpoint(image: UploadFile = File(...)):
+async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
     
@@ -592,7 +589,7 @@ async def detect_vandalism_endpoint(image: UploadFile = File(...)):
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
         # Validate image for processing
-        validate_image_for_processing(pil_image)
+        await run_in_threadpool(validate_image_for_processing, pil_image)
     except HTTPException:
         raise  # Re-raise HTTP exceptions from validation
     except Exception as e:
@@ -618,7 +615,7 @@ async def detect_garbage_endpoint(image: UploadFile = File(...)):
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
         # Validate image for processing
-        validate_image_for_processing(pil_image)
+        await run_in_threadpool(validate_image_for_processing, pil_image)
     except HTTPException:
         raise  # Re-raise HTTP exceptions from validation
     except Exception as e:
