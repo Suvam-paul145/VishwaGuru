@@ -19,6 +19,38 @@ import asyncio
 import logging
 import time
 import magic
+import httpx
+
+from backend.database import Base, engine, SessionLocal, get_db
+from backend.models import Issue
+from backend.schemas import IssueResponse, ChatRequest
+from backend.ai_service import generate_action_plan, chat_with_civic_assistant
+from backend.ai_factory import create_all_ai_services
+from backend.ai_interfaces import initialize_ai_services
+from backend.maharashtra_locator import load_maharashtra_pincode_data, load_maharashtra_mla_data, find_constituency_by_pincode, find_mla_by_constituency
+from backend.bot import run_bot
+from backend.pothole_detection import detect_potholes
+from backend.garbage_detection import detect_garbage
+from backend.local_ml_service import (
+    detect_infrastructure_local,
+    detect_flooding_local,
+    detect_vandalism_local
+)
+from backend.hf_service import (
+    detect_illegal_parking_clip,
+    detect_street_light_clip,
+    detect_fire_clip,
+    detect_stray_animal_clip,
+    detect_blocked_road_clip,
+    detect_tree_hazard_clip,
+    detect_pest_clip,
+    detect_severity_clip,
+    detect_smart_scan_clip,
+    generate_image_caption
+)
+from backend.unified_detection_service import get_detection_status
+from backend.init_db import migrate_db
+from backend.cache import recent_issues_cache
 
 # Configure structured logging
 logging.basicConfig(
@@ -38,7 +70,7 @@ ALLOWED_MIME_TYPES = {
     'image/tiff'
 }
 
-def validate_uploaded_file(file: UploadFile) -> None:
+async def validate_uploaded_file(file: UploadFile) -> None:
     """
     Validate uploaded file for security and safety.
     
@@ -49,9 +81,9 @@ def validate_uploaded_file(file: UploadFile) -> None:
         HTTPException: If validation fails
     """
     # Check file size
-    file.file.seek(0, 2)  # Seek to end
+    await run_in_threadpool(file.file.seek, 0, 2)  # Seek to end
     file_size = file.file.tell()
-    file.file.seek(0)  # Reset to beginning
+    await run_in_threadpool(file.file.seek, 0)  # Reset to beginning
     
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
@@ -62,8 +94,8 @@ def validate_uploaded_file(file: UploadFile) -> None:
     # Check MIME type from content using python-magic
     try:
         # Read first 1024 bytes for MIME detection
-        file_content = file.file.read(1024)
-        file.file.seek(0)  # Reset file pointer
+        file_content = await file.read(1024)
+        await run_in_threadpool(file.file.seek, 0)  # Reset file pointer
         
         detected_mime = magic.from_buffer(file_content, mime=True)
         
@@ -79,12 +111,12 @@ def validate_uploaded_file(file: UploadFile) -> None:
             detail="Unable to validate file content. Please ensure it's a valid image file."
         )
 
-# Simple in-memory cache
-RECENT_ISSUES_CACHE = {
-    "data": None,
-    "timestamp": 0,
-    "ttl": 60  # seconds
-}
+def validate_image_for_processing(image: Image.Image):
+    try:
+        image.load()
+    except Exception as e:
+        logger.error(f"Image load failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid image data")
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -275,7 +307,7 @@ async def create_issue(
     try:
         # Validate uploaded image if provided
         if image:
-            validate_uploaded_file(image)
+            await validate_uploaded_file(image)
         
         # Save image if provided
         if image:
@@ -425,7 +457,7 @@ def get_recent_issues(db: Session = Depends(get_db)):
 @app.post("/api/detect-pothole")
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
-    validate_uploaded_file(image)
+    await validate_uploaded_file(image)
     
     # Convert to PIL Image directly from file object to save memory
     try:
@@ -449,7 +481,7 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
 @app.post("/api/detect-infrastructure")
 async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
-    validate_uploaded_file(image)
+    await validate_uploaded_file(image)
     
     # Convert to PIL Image directly from file object to save memory
     try:
@@ -475,7 +507,7 @@ async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
 @app.post("/api/detect-flooding")
 async def detect_flooding_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
-    validate_uploaded_file(image)
+    await validate_uploaded_file(image)
     
     # Convert to PIL Image directly from file object to save memory
     try:
@@ -501,7 +533,7 @@ async def detect_flooding_endpoint(image: UploadFile = File(...)):
 @app.post("/api/detect-vandalism")
 async def detect_vandalism_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
-    validate_uploaded_file(image)
+    await validate_uploaded_file(image)
     
     # Convert to PIL Image directly from file object to save memory
     try:
@@ -527,7 +559,7 @@ async def detect_vandalism_endpoint(image: UploadFile = File(...)):
 @app.post("/api/detect-garbage")
 async def detect_garbage_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
-    validate_uploaded_file(image)
+    await validate_uploaded_file(image)
     
     # Convert to PIL Image directly from file object to save memory
     try:

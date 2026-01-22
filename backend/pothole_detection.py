@@ -118,12 +118,6 @@ def reset_model():
         _model_initialized = False
         _model_loading_error = None
         logger.info("Model singleton state has been reset.")
-    global _model
-    if _model is None:
-        with _model_lock:
-            if _model is None:  # Double check inside lock
-                _model = load_model()
-    return _model
 
 def detect_potholes(image_source):
     """
