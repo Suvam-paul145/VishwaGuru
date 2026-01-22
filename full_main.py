@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from functools import lru_cache
-from typing import List, Optional
+from typing import List
 from datetime import datetime, timedelta
 from PIL import Image
 
@@ -19,34 +19,6 @@ import asyncio
 import logging
 import time
 import magic
-import httpx
-
-from backend.database import Base, engine, SessionLocal, get_db
-from backend.models import Issue
-from backend.schemas import IssueResponse, ChatRequest
-from backend.ai_service import generate_action_plan, chat_with_civic_assistant
-from backend.ai_factory import create_all_ai_services
-from backend.ai_interfaces import initialize_ai_services, get_ai_services
-from backend.maharashtra_locator import load_maharashtra_pincode_data, load_maharashtra_mla_data, find_constituency_by_pincode, find_mla_by_constituency
-from backend.bot import run_bot
-from backend.init_db import migrate_db
-from backend.pothole_detection import detect_potholes
-from backend.garbage_detection import detect_garbage
-from backend.local_ml_service import detect_vandalism_local, detect_infrastructure_local, detect_flooding_local
-from backend.unified_detection_service import get_detection_status
-from backend.hf_service import (
-    detect_illegal_parking_clip,
-    detect_street_light_clip,
-    detect_fire_clip,
-    detect_stray_animal_clip,
-    detect_blocked_road_clip,
-    detect_tree_hazard_clip,
-    detect_pest_clip,
-    detect_severity_clip,
-    detect_smart_scan_clip,
-    generate_image_caption
-)
-from backend.cache import recent_issues_cache
 
 # Configure structured logging
 logging.basicConfig(
@@ -69,10 +41,10 @@ ALLOWED_MIME_TYPES = {
 def validate_uploaded_file(file: UploadFile) -> None:
     """
     Validate uploaded file for security and safety.
-    
+
     Args:
         file: The uploaded file to validate
-        
+
     Raises:
         HTTPException: If validation fails
     """
@@ -80,21 +52,21 @@ def validate_uploaded_file(file: UploadFile) -> None:
     file.file.seek(0, 2)  # Seek to end
     file_size = file.file.tell()
     file.file.seek(0)  # Reset to beginning
-    
+
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
-            status_code=413, 
+            status_code=413,
             detail=f"File too large. Maximum size allowed is {MAX_FILE_SIZE // (1024*1024)}MB"
         )
-    
+
     # Check MIME type from content using python-magic
     try:
         # Read first 1024 bytes for MIME detection
         file_content = file.file.read(1024)
         file.file.seek(0)  # Reset file pointer
-        
+
         detected_mime = magic.from_buffer(file_content, mime=True)
-        
+
         if detected_mime not in ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
@@ -107,15 +79,12 @@ def validate_uploaded_file(file: UploadFile) -> None:
             detail="Unable to validate file content. Please ensure it's a valid image file."
         )
 
-def validate_image_for_processing(image: Image.Image) -> None:
-    """
-    Validate PIL image for processing.
-    """
-    if image is None:
-        raise HTTPException(status_code=400, detail="Invalid image")
-
-    if image.width < 10 or image.height < 10:
-        raise HTTPException(status_code=400, detail="Image too small")
+# Simple in-memory cache
+RECENT_ISSUES_CACHE = {
+    "data": None,
+    "timestamp": 0,
+    "ttl": 60  # seconds
+}
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -131,7 +100,6 @@ async def process_action_plan_background(issue_id: int, description: str, catego
         if issue:
             issue.action_plan = json.dumps(action_plan)
             db.commit()
-            recent_issues_cache.invalidate()
     except Exception as e:
         logger.error(f"Background action plan generation failed for issue {issue_id}: {e}", exc_info=True)
     finally:
@@ -158,8 +126,7 @@ async def lifespan(app: FastAPI):
         logger.info("AI services initialized successfully.")
     except Exception as e:
         logger.error(f"Error initializing AI services: {e}", exc_info=True)
-        # We don't raise here to allow the app to start even if AI services fail (graceful degradation)
-        # raise
+        raise
 
     # Startup: Load static data to avoid first-request latency
     try:
@@ -173,7 +140,7 @@ async def lifespan(app: FastAPI):
     # Startup: Start Telegram Bot in background (non-blocking)
     bot_task = None
     bot_app = None
-    
+
     # Start bot initialization in background to avoid blocking port binding
     async def start_bot_background():
         nonlocal bot_app
@@ -181,16 +148,12 @@ async def lifespan(app: FastAPI):
             bot_app = await run_bot()
         except Exception as e:
             logger.error(f"Error starting bot: {e}")
-    
+
     # Create background task for bot initialization
-    # Only start bot if token is present
-    if os.environ.get("TELEGRAM_BOT_TOKEN"):
-        bot_task = asyncio.create_task(start_bot_background())
-    else:
-        logger.warning("TELEGRAM_BOT_TOKEN not found, skipping bot startup.")
-    
+    bot_task = asyncio.create_task(start_bot_background())
+
     yield
-    
+
     # Shutdown: Close Shared HTTP Client
     await app.state.http_client.aclose()
     logger.info("Shared HTTP Client closed.")
@@ -204,12 +167,10 @@ async def lifespan(app: FastAPI):
             pass  # Expected when cancelling
         except Exception as e:
             logger.error(f"Error cancelling bot task: {e}")
-    
+
     if bot_app:
         try:
-            # Check if bot is running before stopping
-            if hasattr(bot_app, 'updater') and bot_app.updater.running:
-                await bot_app.updater.stop()
+            await bot_app.updater.stop()
             await bot_app.stop()
             await bot_app.shutdown()
         except Exception as e:
@@ -224,14 +185,17 @@ app = FastAPI(title="VishwaGuru Backend", lifespan=lifespan)
 
 frontend_url = os.environ.get("FRONTEND_URL")
 if not frontend_url:
-    # Fallback for development if not set, but log warning
-    logger.warning("FRONTEND_URL environment variable not set. Defaulting to localhost.")
-    frontend_url = "http://localhost:5173"
+    raise ValueError(
+        "FRONTEND_URL environment variable is required for security. "
+        "Set it to your frontend URL (e.g., https://your-app.netlify.app). "
+        "For development, use http://localhost:5173 or similar."
+    )
 
 # Validate URL format (basic check)
 if not (frontend_url.startswith("http://") or frontend_url.startswith("https://")):
-    logger.warning(f"Invalid FRONTEND_URL: {frontend_url}. Defaulting to localhost.")
-    frontend_url = "http://localhost:5173"
+    raise ValueError(
+        f"FRONTEND_URL must be a valid HTTP/HTTPS URL. Got: {frontend_url}"
+    )
 
 # Build allowed origins list
 allowed_origins = [frontend_url]
@@ -307,12 +271,12 @@ async def create_issue(
     db: Session = Depends(get_db)
 ):
     image_path = None
-    
+
     try:
         # Validate uploaded image if provided
         if image:
             validate_uploaded_file(image)
-        
+
         # Save image if provided
         if image:
             upload_dir = "data/uploads"
@@ -346,9 +310,6 @@ async def create_issue(
 
         # Offload blocking DB operations to threadpool
         await run_in_threadpool(save_issue_db, db, new_issue)
-
-        # Invalidate cache immediately after new issue
-        recent_issues_cache.invalidate()
     except Exception as e:
         # Clean up uploaded file if DB save failed
         if image_path and os.path.exists(image_path):
@@ -356,7 +317,7 @@ async def create_issue(
                 os.remove(image_path)
             except OSError:
                 pass  # Ignore cleanup errors
-        
+
         logger.error(f"Database error while creating issue: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to save issue to database")
 
@@ -382,7 +343,6 @@ def upvote_issue(issue_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(issue)
-    recent_issues_cache.invalidate()
 
     return {"id": issue.id, "upvotes": issue.upvotes, "message": "Upvoted successfully"}
 
@@ -466,7 +426,7 @@ def get_recent_issues(db: Session = Depends(get_db)):
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
-    
+
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -490,7 +450,7 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
 async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
-    
+
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -516,7 +476,7 @@ async def detect_infrastructure_endpoint(image: UploadFile = File(...)):
 async def detect_flooding_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
-    
+
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -542,7 +502,7 @@ async def detect_flooding_endpoint(image: UploadFile = File(...)):
 async def detect_vandalism_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
-    
+
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -568,7 +528,7 @@ async def detect_vandalism_endpoint(image: UploadFile = File(...)):
 async def detect_garbage_endpoint(image: UploadFile = File(...)):
     # Validate uploaded file
     validate_uploaded_file(image)
-    
+
     # Convert to PIL Image directly from file object to save memory
     try:
         pil_image = await run_in_threadpool(Image.open, image.file)
@@ -760,10 +720,10 @@ async def generate_description_endpoint(request: Request, image: UploadFile = Fi
 async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, max_length=6)):
     """
     Get MLA and representative contact information for Maharashtra by pincode.
-    
+
     Args:
         pincode: 6-digit pincode for Maharashtra
-        
+
     Returns:
         JSON with MLA details, constituency info, and grievance portal links
     """
@@ -773,16 +733,16 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
             status_code=400,
             detail="Invalid pincode format. Must be 6 digits."
         )
-    
+
     # Find constituency by pincode
     constituency_info = find_constituency_by_pincode(pincode)
-    
+
     if not constituency_info:
         raise HTTPException(
             status_code=404,
             detail="Unknown pincode for Maharashtra MVP. Currently only supporting limited pincodes."
         )
-    
+
     # Find MLA by constituency
     # If constituency_info exists but assembly_constituency is None, it means we only found District info via fallback
     assembly_constituency = constituency_info.get("assembly_constituency")
@@ -790,7 +750,7 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
 
     if assembly_constituency:
         mla_info = find_mla_by_constituency(assembly_constituency)
-    
+
     # If explicit MLA lookup failed or wasn't possible, create a generic placeholder
     if not mla_info:
         mla_info = {
@@ -803,7 +763,7 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
         # If we have a district but no constituency, explain it
         if not assembly_constituency:
              constituency_info["assembly_constituency"] = "Unknown (District Found)"
-    
+
     # Generate AI summary (optional)
     description = None
     try:
@@ -818,7 +778,7 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
     except Exception as e:
         logger.error(f"Error generating MLA summary: {e}")
         # Continue without description
-    
+
     # Build response
     response = {
         "pincode": pincode,
@@ -838,7 +798,7 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
             "note": "This is an MVP; data may not be fully accurate."
         }
     }
-    
+
     # Add description if generated
     if description:
         response["description"] = description
