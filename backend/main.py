@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -25,11 +25,13 @@ import httpx
 from backend.cache import recent_issues_cache
 from backend.database import engine, Base, SessionLocal, get_db
 from backend.models import Issue
+from backend.dependencies import get_valid_image
 from backend.schemas import (
-    IssueResponse, IssueCreateRequest, IssueCreateResponse, ChatRequest, ChatResponse,
+    IssueResponse, IssueSummaryResponse, IssueCreateRequest, IssueCreateResponse, ChatRequest, ChatResponse,
     VoteRequest, VoteResponse, DetectionResponse, UrgencyAnalysisRequest,
     UrgencyAnalysisResponse, HealthResponse, MLStatusResponse, ResponsibilityMapResponse,
-    ErrorResponse, SuccessResponse, IssueCategory, IssueStatus
+    ErrorResponse, SuccessResponse, IssueCategory, IssueStatus,
+    IssueStatusUpdateRequest, IssueStatusUpdateResponse, PushSubscriptionRequest, PushSubscriptionResponse
 )
 from backend.exceptions import EXCEPTION_HANDLERS
 from backend.bot import run_bot, start_bot_thread, stop_bot_thread
@@ -377,9 +379,9 @@ async def create_issue(
     try:
         current_cache = recent_issues_cache.get()
         if current_cache:
-            # Create a dict representation of the new issue (similar to IssueResponse)
+            # Create a dict representation of the new issue (similar to IssueSummaryResponse)
             # We use the new_issue object which has been refreshed from DB
-            new_issue_dict = IssueResponse(
+            new_issue_dict = IssueSummaryResponse(
                 id=new_issue.id,
                 category=new_issue.category,
                 description=new_issue.description[:100] + "..." if len(new_issue.description) > 100 else new_issue.description,
@@ -389,8 +391,7 @@ async def create_issue(
                 upvotes=new_issue.upvotes if new_issue.upvotes is not None else 0,
                 location=new_issue.location,
                 latitude=new_issue.latitude,
-                longitude=new_issue.longitude,
-                action_plan=new_issue.action_plan
+                longitude=new_issue.longitude
             ).model_dump(mode='json')
 
             # Prepend new issue to the list
@@ -571,7 +572,7 @@ async def chat_endpoint(request: ChatRequest):
         logger.error(f"Chat service error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Chat service temporarily unavailable")
 
-@app.get("/api/issues/recent", response_model=List[IssueResponse])
+@app.get("/api/issues/recent", response_model=List[IssueSummaryResponse])
 def get_recent_issues(db: Session = Depends(get_db)):
     cached_data = recent_issues_cache.get()
     if cached_data:
@@ -580,17 +581,13 @@ def get_recent_issues(db: Session = Depends(get_db)):
         # which is redundant for cached data that was already validated when stored.
         return JSONResponse(content=cached_data)
 
-    # Fetch last 10 issues
-    issues = db.query(Issue).order_by(Issue.created_at.desc()).limit(10).all()
-
-    # Process issues to handle action_plan deserialization if needed
-    # Since action_plan is Text in DB, we should keep it that way for IssueResponse or parse it.
-    # The frontend expects it. IssueResponse defines action_plan as Optional[Any].
+    # Fetch last 10 issues, deferring action_plan to optimize performance
+    issues = db.query(Issue).options(defer(Issue.action_plan)).order_by(Issue.created_at.desc()).limit(10).all()
 
     # Convert to Pydantic models for validation and serialization
     data = []
     for i in issues:
-        data.append(IssueResponse(
+        data.append(IssueSummaryResponse(
             id=i.id,
             category=i.category,
             description=i.description[:100] + "..." if len(i.description) > 100 else i.description,
@@ -600,8 +597,7 @@ def get_recent_issues(db: Session = Depends(get_db)):
             upvotes=i.upvotes if i.upvotes is not None else 0,
             location=i.location,
             latitude=i.latitude,
-            longitude=i.longitude,
-            action_plan=i.action_plan
+            longitude=i.longitude
         ).model_dump(mode='json')) # Store as JSON-compatible dict in cache
 
     recent_issues_cache.set(data)
@@ -609,21 +605,7 @@ def get_recent_issues(db: Session = Depends(get_db)):
     return data
 
 @app.post("/api/detect-pothole", response_model=DetectionResponse)
-async def detect_pothole_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for pothole detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
+async def detect_pothole_endpoint(pil_image: Image.Image = Depends(get_valid_image)):
     # Run detection (blocking, so run in threadpool)
     try:
         detections = await run_in_threadpool(detect_potholes, pil_image)
@@ -633,21 +615,7 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Pothole detection service temporarily unavailable")
 
 @app.post("/api/detect-infrastructure", response_model=DetectionResponse)
-async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for infrastructure detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
+async def detect_infrastructure_endpoint(request: Request, pil_image: Image.Image = Depends(get_valid_image)):
     # Run detection using unified service (local ML by default)
     try:
         # Use shared HTTP client from app state
@@ -659,21 +627,7 @@ async def detect_infrastructure_endpoint(request: Request, image: UploadFile = F
         raise HTTPException(status_code=500, detail="Infrastructure detection service temporarily unavailable")
 
 @app.post("/api/detect-flooding", response_model=DetectionResponse)
-async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for flooding detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
+async def detect_flooding_endpoint(request: Request, pil_image: Image.Image = Depends(get_valid_image)):
     # Run detection using unified service (local ML by default)
     try:
         # Use shared HTTP client from app state
@@ -686,21 +640,7 @@ async def detect_flooding_endpoint(request: Request, image: UploadFile = File(..
 
 # FIXED: Standardized Detection Endpoints with Consistent Validation
 @app.post("/api/detect-vandalism", response_model=DetectionResponse)
-async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
+async def detect_vandalism_endpoint(request: Request, pil_image: Image.Image = Depends(get_valid_image)):
     # Run detection using unified service (local ML by default)
     try:
         # Use shared HTTP client from app state
@@ -712,21 +652,7 @@ async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(.
         raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
 
 @app.post("/api/detect-garbage", response_model=DetectionResponse)
-async def detect_garbage_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for garbage detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
+async def detect_garbage_endpoint(pil_image: Image.Image = Depends(get_valid_image)):
     # Run detection (blocking, so run in threadpool)
     try:
         detections = await run_in_threadpool(detect_garbage, pil_image)
@@ -994,11 +920,11 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
 
     return response
 
-async def send_status_notification(issue_id: int, old_status: str, new_status: str, notes: str = None):
+def send_status_notification(issue_id: int, old_status: str, new_status: str, notes: str = None):
     """Send push notification for issue status update"""
+    db = SessionLocal()
     try:
         # Get issue details
-        db = next(get_db())
         issue = db.query(Issue).filter(Issue.id == issue_id).first()
         if not issue:
             return
@@ -1060,6 +986,8 @@ async def send_status_notification(issue_id: int, old_status: str, new_status: s
 
     except Exception as e:
         logger.error(f"Error sending status notification: {e}")
+    finally:
+        db.close()
 
 # Note: Frontend serving code removed for separate deployment
 # The frontend will be deployed on Netlify and make API calls to this backend

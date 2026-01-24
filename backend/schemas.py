@@ -37,6 +37,20 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str = Field(..., description="AI assistant's response")
 
+class IssueSummaryResponse(BaseModel):
+    id: int = Field(..., description="Unique issue identifier")
+    category: str = Field(..., description="Issue category")
+    description: str = Field(..., description="Issue description")
+    created_at: datetime = Field(..., description="Issue creation timestamp")
+    image_path: Optional[str] = Field(None, description="Path to uploaded image")
+    status: str = Field(..., description="Issue status")
+    upvotes: int = Field(0, description="Number of upvotes")
+    location: Optional[str] = Field(None, description="Location description")
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude coordinate")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude coordinate")
+
+    model_config = ConfigDict(from_attributes=True)
+
 class IssueResponse(BaseModel):
     id: int = Field(..., description="Unique issue identifier")
     category: str = Field(..., description="Issue category")
@@ -104,6 +118,9 @@ class PushSubscriptionResponse(BaseModel):
     message: str = Field(..., description="Subscription confirmation")
 
 class DetectionRequest(BaseModel):
+    detections: List[Dict[str, Any]] = Field(..., description="List of detected objects/items")
+
+class DetectionResponse(BaseModel):
     detections: List[Dict[str, Any]] = Field(..., description="List of detected objects/items")
 
 class UrgencyAnalysisRequest(BaseModel):

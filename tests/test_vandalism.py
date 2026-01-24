@@ -13,7 +13,8 @@ def client():
 def test_read_main(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["service"] == "VishwaGuru API"
+    # SuccessResponse wraps the data
+    assert response.json()["data"]["service"] == "VishwaGuru API"
 
 @patch("backend.main.magic.from_buffer")
 @patch("backend.main.detect_vandalism_local", new_callable=AsyncMock)

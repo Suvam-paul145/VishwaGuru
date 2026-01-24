@@ -43,7 +43,7 @@ def test_create_issue():
         print(f"Status Code: {response.status_code}")
         print(f"Response: {response.json()}")
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         assert "action_plan" in response.json()
         # Action plan should be None initially (async)
         assert response.json()["action_plan"] is None
