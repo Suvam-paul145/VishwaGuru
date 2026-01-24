@@ -24,12 +24,14 @@ import httpx
 
 from backend.cache import recent_issues_cache
 from backend.database import engine, Base, SessionLocal, get_db
-from backend.models import Issue
+from backend.models import Issue, PushSubscription
 from backend.schemas import (
     IssueResponse, IssueCreateRequest, IssueCreateResponse, ChatRequest, ChatResponse,
     VoteRequest, VoteResponse, DetectionResponse, UrgencyAnalysisRequest,
     UrgencyAnalysisResponse, HealthResponse, MLStatusResponse, ResponsibilityMapResponse,
-    ErrorResponse, SuccessResponse, IssueCategory, IssueStatus
+    ErrorResponse, SuccessResponse, IssueCategory, IssueStatus,
+    IssueStatusUpdateRequest, IssueStatusUpdateResponse,
+    PushSubscriptionRequest, PushSubscriptionResponse
 )
 from backend.exceptions import EXCEPTION_HANDLERS
 from backend.bot import run_bot
@@ -50,6 +52,7 @@ from backend.local_ml_service import (
     detect_vandalism_local,
     get_detection_status
 )
+from backend.privacy import apply_privacy_blur
 from backend.gemini_services import get_ai_services, initialize_ai_services
 from backend.hf_api_service import (
     detect_illegal_parking_clip,
@@ -307,6 +310,7 @@ def save_issue_db(db: Session, issue: Issue):
 
 @app.post("/api/issues", response_model=IssueCreateResponse, status_code=201)
 async def create_issue(
+    request: Request,
     background_tasks: BackgroundTasks,
     description: str = Form(..., min_length=10, max_length=1000),
     category: str = Form(..., pattern=f"^({'|'.join([cat.value for cat in IssueCategory])})$"),
@@ -324,13 +328,26 @@ async def create_issue(
         if image:
             await validate_uploaded_file(image)
         
-        # Save image if provided
+        # Save and Process image if provided
         if image:
             upload_dir = "data/uploads"
             os.makedirs(upload_dir, exist_ok=True)
             filename = f"{uuid.uuid4()}_{image.filename}"
             image_path = os.path.join(upload_dir, filename)
-            await run_in_threadpool(save_file_blocking, image.file, image_path)
+
+            # Load image using PIL
+            pil_image = await run_in_threadpool(Image.open, image.file)
+
+            # Apply Privacy Protection (Blur Persons)
+            try:
+                client = request.app.state.http_client
+                pil_image = await apply_privacy_blur(pil_image, client=client)
+            except Exception as e:
+                logger.warning(f"Privacy protection failed, saving original: {e}")
+
+            # Save the (potentially blurred) image
+            await run_in_threadpool(pil_image.save, image_path)
+
     except HTTPException:
         # Re-raise HTTP exceptions (from validation)
         raise

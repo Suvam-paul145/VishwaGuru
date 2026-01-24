@@ -4,8 +4,10 @@ import {
   Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug,
   Scan, ChevronRight, LayoutGrid, Shield, Leaf, Building
 } from 'lucide-react';
+import MapView from './MapView';
 
 const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) => {
+  const [viewMode, setViewMode] = React.useState('list');
   const totalImpact = 1240 + (recentIssues ? recentIssues.length : 0);
 
   const categories = [
@@ -133,48 +135,67 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote }) =
             <Activity size={18} className="text-orange-500" />
             <h2 className="font-bold text-gray-800">Community Activity</h2>
         </div>
-        <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Live Feed</span>
-      </div>
-      <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto custom-scrollbar">
-        {recentIssues.length > 0 ? (
-          recentIssues.map((issue) => (
-            <div key={issue.id} className="p-4 hover:bg-gray-50 transition group">
-              <div className="flex justify-between items-start mb-1">
-                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide mb-1 ${
-                    issue.category === 'road' ? 'bg-blue-100 text-blue-700' :
-                    issue.category === 'garbage' ? 'bg-orange-100 text-orange-700' :
-                    'bg-gray-100 text-gray-600'
-                }`}>
-                  {issue.category}
-                </span>
-                <span className="text-xs text-gray-400">
-                      {new Date(issue.created_at).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="text-sm text-gray-700 line-clamp-2 mb-2 group-hover:text-gray-900">{issue.description}</p>
 
-              <div className="flex justify-between items-center">
-                   <div className="text-xs text-gray-400 flex items-center gap-1">
-                       <MapPin size={12} />
-                       {issue.location || 'Unknown Location'}
-                   </div>
-                   <button
-                      onClick={(e) => { e.stopPropagation(); handleUpvote(issue.id); }}
-                      className="flex items-center gap-1.5 text-gray-500 hover:text-blue-600 text-xs bg-gray-50 px-2 py-1 rounded-md transition hover:bg-blue-50"
-                  >
-                      <ThumbsUp size={12} />
-                      <span className="font-medium">{issue.upvotes || 0}</span>
-                  </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="p-8 text-center text-gray-400 text-sm flex flex-col items-center">
-            <Activity size={32} className="mb-2 opacity-20" />
-            No recent activity to show.
-          </div>
-        )}
+        <div className="flex bg-gray-200 rounded-lg p-1 gap-1">
+            <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition ${viewMode === 'list' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                List
+            </button>
+            <button
+                onClick={() => setViewMode('map')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition ${viewMode === 'map' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                Map
+            </button>
+        </div>
       </div>
+
+      {viewMode === 'list' ? (
+        <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto custom-scrollbar">
+            {recentIssues.length > 0 ? (
+            recentIssues.map((issue) => (
+                <div key={issue.id} className="p-4 hover:bg-gray-50 transition group">
+                <div className="flex justify-between items-start mb-1">
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide mb-1 ${
+                        issue.category === 'road' ? 'bg-blue-100 text-blue-700' :
+                        issue.category === 'garbage' ? 'bg-orange-100 text-orange-700' :
+                        'bg-gray-100 text-gray-600'
+                    }`}>
+                    {issue.category}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                        {new Date(issue.created_at).toLocaleDateString()}
+                    </span>
+                </div>
+                <p className="text-sm text-gray-700 line-clamp-2 mb-2 group-hover:text-gray-900">{issue.description}</p>
+
+                <div className="flex justify-between items-center">
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                        <MapPin size={12} />
+                        {issue.location || 'Unknown Location'}
+                    </div>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); handleUpvote(issue.id); }}
+                        className="flex items-center gap-1.5 text-gray-500 hover:text-blue-600 text-xs bg-gray-50 px-2 py-1 rounded-md transition hover:bg-blue-50"
+                    >
+                        <ThumbsUp size={12} />
+                        <span className="font-medium">{issue.upvotes || 0}</span>
+                    </button>
+                </div>
+                </div>
+            ))
+            ) : (
+            <div className="p-8 text-center text-gray-400 text-sm flex flex-col items-center">
+                <Activity size={32} className="mb-2 opacity-20" />
+                No recent activity to show.
+            </div>
+            )}
+        </div>
+      ) : (
+        <MapView issues={recentIssues} />
+      )}
     </div>
   </div>
   );

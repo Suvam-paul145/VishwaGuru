@@ -21,6 +21,9 @@ CAPTION_API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-i
 # Sentiment Analysis / Text Classification Model
 SENTIMENT_API_URL = "https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment-latest"
 
+# Object Detection Model (for Privacy)
+DETR_API_URL = "https://api-inference.huggingface.co/models/facebook/detr-resnet-50"
+
 async def _make_request(client, url, payload):
     try:
         response = await client.post(url, headers=headers, json=payload, timeout=20.0)
@@ -229,3 +232,31 @@ async def analyze_urgency_text(text: str, client: httpx.AsyncClient = None):
             return {"urgency": urgency, "score": score, "sentiment": label}
 
     return {"urgency": "Low", "score": 0, "sentiment": "unknown"}
+
+async def detect_objects_detr(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    """
+    Detects objects using DETR model.
+    Returns a list of dicts: [{'label': 'person', 'score': 0.99, 'box': {'xmin': 10, 'ymin': 20, 'xmax': 100, 'ymax': 200}}, ...]
+    """
+    img_bytes = _prepare_image_bytes(image)
+
+    # HF Inference API for Object Detection expects raw bytes body usually
+    try:
+        headers_bin = {"Authorization": f"Bearer {token}"} if token else {}
+        async def do_post(c):
+             return await c.post(DETR_API_URL, headers=headers_bin, content=img_bytes, timeout=20.0)
+
+        if client:
+            response = await do_post(client)
+        else:
+            async with httpx.AsyncClient() as new_client:
+                response = await do_post(new_client)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"DETR API Error: {response.status_code} - {response.text}")
+            return []
+    except Exception as e:
+        logger.error(f"DETR Detection Error: {e}")
+        return []
