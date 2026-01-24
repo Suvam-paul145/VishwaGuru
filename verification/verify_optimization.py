@@ -1,6 +1,5 @@
 import sys
 import os
-import asyncio
 from fastapi.testclient import TestClient
 # Ensure backend modules are found
 sys.path.append(os.getcwd())
