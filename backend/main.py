@@ -195,8 +195,9 @@ async def process_action_plan_background(issue_id: int, description: str, catego
             issue.action_plan = action_plan
             db.commit()
 
-            # Invalidate cache to ensure users get the updated action plan
-            recent_issues_cache.invalidate("recent_issues")
+            # Note: We do NOT invalidate recent_issues cache here because action_plan
+            # is not included in the recent_issues list payload.
+            # The client should poll /api/issues/{id} to get the action plan.
     except Exception as e:
         logger.error(f"Background action plan generation failed for issue {issue_id}: {e}", exc_info=True)
     finally:
@@ -706,6 +707,18 @@ def get_recent_issues(db: Session = Depends(get_db)):
     # Thread-safe cache update
     recent_issues_cache.set(data, "recent_issues")
     return data
+
+@app.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    """
+    Get a specific issue by ID with full details including action plan.
+    This endpoint is optimized for polling a single issue status/result.
+    """
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    return issue
 
 @app.post("/api/detect-pothole", response_model=DetectionResponse)
 async def detect_pothole_endpoint(image: UploadFile = File(...)):

@@ -7,7 +7,8 @@ def run_dynamic(playwright):
 
     # Mutable state for mock
     responses = {
-        "recent": '[]'
+        "recent": '[]',
+        "issue_detail": '{"id": 123, "action_plan": null}'
     }
 
     def handle_recent(route):
@@ -17,7 +18,15 @@ def run_dynamic(playwright):
             body=responses["recent"]
         )
 
+    def handle_issue_detail(route):
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=responses["issue_detail"]
+        )
+
     page.route("**/api/issues/recent", handle_recent)
+    page.route("**/api/issues/123", handle_issue_detail)
 
     page.route("**/api/issues", lambda route: route.fulfill(
         status=200,
@@ -41,7 +50,7 @@ def run_dynamic(playwright):
     print("Generating state captured")
 
     # Change mock response to simulate completed AI task
-    responses["recent"] = '[{"id": 123, "action_plan": {"whatsapp": "Hello", "email_subject": "Sub", "email_body": "Body", "x_post": "Tweet"}}]'
+    responses["issue_detail"] = '{"id": 123, "action_plan": {"whatsapp": "Hello", "email_subject": "Sub", "email_body": "Body", "x_post": "Tweet"}}'
 
     print("Waiting for polling update...")
     expect(page.get_by_text("Action Plan Generated!")).to_be_visible(timeout=8000)

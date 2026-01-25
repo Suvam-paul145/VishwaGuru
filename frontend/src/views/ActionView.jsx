@@ -5,18 +5,17 @@ import StatusTracker from '../components/StatusTracker';
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 const ActionView = ({ actionPlan, setActionPlan, setView }) => {
-  if (!actionPlan) return null;
-
   useEffect(() => {
+    if (!actionPlan) return;
+
     let interval;
     if (actionPlan.status === 'generating' && actionPlan.id) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`${API_URL}/api/issues/recent`);
+          // Optimized: Poll specific issue endpoint instead of full list
+          const res = await fetch(`${API_URL}/api/issues/${actionPlan.id}`);
           if (res.ok) {
-            const data = await res.json();
-            // Find the issue by ID
-            const issue = data.find(i => i.id === actionPlan.id);
+            const issue = await res.json();
             if (issue && issue.action_plan && issue.action_plan.whatsapp) {
                // Plan is ready!
                setActionPlan(issue.action_plan);
@@ -29,6 +28,8 @@ const ActionView = ({ actionPlan, setActionPlan, setView }) => {
     }
     return () => clearInterval(interval);
   }, [actionPlan, setActionPlan]);
+
+  if (!actionPlan) return null;
 
   if (actionPlan.status === 'generating') {
       return (
