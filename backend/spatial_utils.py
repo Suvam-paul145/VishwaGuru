@@ -150,3 +150,45 @@ def calculate_cluster_centroid(cluster: List[Issue]) -> Tuple[float, float]:
     avg_lon = sum(issue.longitude for issue in valid_issues) / len(valid_issues)
 
     return avg_lat, avg_lon
+
+
+def get_bounding_box(lat: float, lon: float, radius_meters: float) -> Tuple[float, float, float, float]:
+    """
+    Calculate bounding box coordinates (min_lat, max_lat, min_lon, max_lon)
+    for a given point and radius.
+
+    Args:
+        lat: Latitude of the center point
+        lon: Longitude of the center point
+        radius_meters: Radius in meters
+
+    Returns:
+        Tuple of (min_lat, max_lat, min_lon, max_lon)
+    """
+    # Earth's radius in meters (approx)
+    R = 6378137.0
+
+    # Coordinate offsets in radians
+    dn = radius_meters
+    de = radius_meters
+
+    # Coordinate offsets in degrees
+    dLat = dn / R
+
+    # Handle poles (avoid division by zero)
+    # If closer than ~10m to pole, just return full longitude range
+    if abs(abs(lat) - 90.0) < 0.0001:
+        dLon = math.pi # Full circle
+    else:
+        dLon = de / (R * math.cos(math.pi * lat / 180.0))
+
+    # Offset in degrees
+    dLat_deg = dLat * 180.0 / math.pi
+    dLon_deg = dLon * 180.0 / math.pi
+
+    return (
+        lat - dLat_deg,
+        lat + dLat_deg,
+        lon - dLon_deg,
+        lon + dLon_deg
+    )

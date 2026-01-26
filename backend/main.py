@@ -55,7 +55,7 @@ from backend.local_ml_service import (
     get_detection_status
 )
 from backend.gemini_services import get_ai_services, initialize_ai_services
-from backend.spatial_utils import find_nearby_issues
+from backend.spatial_utils import find_nearby_issues, get_bounding_box
 from backend.hf_api_service import (
     detect_illegal_parking_clip,
     detect_street_light_clip,
@@ -455,12 +455,17 @@ async def create_issue(
 
     if latitude is not None and longitude is not None:
         try:
-            # Find existing open issues within 50 meters
+            # Calculate bounding box for 50m radius (with small buffer)
+            min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, 60.0)
+
+            # Find existing open issues within bounding box
             open_issues = await run_in_threadpool(
                 lambda: db.query(Issue).filter(
                     Issue.status == "open",
-                    Issue.latitude.isnot(None),
-                    Issue.longitude.isnot(None)
+                    Issue.latitude >= min_lat,
+                    Issue.latitude <= max_lat,
+                    Issue.longitude >= min_lon,
+                    Issue.longitude <= max_lon
                 ).all()
             )
 
@@ -633,11 +638,16 @@ def get_nearby_issues(
     Returns issues within the specified radius, sorted by distance.
     """
     try:
-        # Query open issues with coordinates
+        # Calculate bounding box (with safety margin)
+        min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, radius * 1.2)
+
+        # Query open issues within bounding box
         open_issues = db.query(Issue).filter(
             Issue.status == "open",
-            Issue.latitude.isnot(None),
-            Issue.longitude.isnot(None)
+            Issue.latitude >= min_lat,
+            Issue.latitude <= max_lat,
+            Issue.longitude >= min_lon,
+            Issue.longitude <= max_lon
         ).all()
 
         nearby_issues_with_distance = find_nearby_issues(
