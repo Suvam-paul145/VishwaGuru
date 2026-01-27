@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, defer
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from functools import lru_cache
-from typing import List
+from typing import List, Callable, Any, Union, Dict
 from datetime import datetime, timedelta, timezone
 from PIL import Image
 
@@ -191,7 +191,8 @@ async def process_action_plan_background(issue_id: int, description: str, catego
     db = SessionLocal()
     try:
         # Generate Action Plan (AI)
-        action_plan = await generate_action_plan(description, category, language, image_path)
+        ai_services = get_ai_services()
+        action_plan = await ai_services.action_plan_service.generate_action_plan(description, category, language, image_path)
 
         # Update issue in DB
         issue = db.query(Issue).filter(Issue.id == issue_id).first()
@@ -363,6 +364,45 @@ def get_stats(db: Session = Depends(get_db)):
     recent_issues_cache.set(data, "stats")
 
     return response
+
+async def process_and_detect(
+    image: UploadFile,
+    detection_func: Callable[[Image.Image], Any],
+    is_async: bool = False
+) -> DetectionResponse:
+    """
+    Helper to process uploaded image and run detection.
+    Args:
+        image: Uploaded file
+        detection_func: Function to run detection (takes PIL Image)
+        is_async: Whether detection_func is async
+    """
+    # Validate uploaded file
+    await validate_uploaded_file(image)
+
+    # Convert to PIL Image directly from file object to save memory
+    try:
+        pil_image = await run_in_threadpool(Image.open, image.file)
+        # Validate image for processing
+        await run_in_threadpool(validate_image_for_processing, pil_image)
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions from validation
+    except Exception as e:
+        logger.error(f"Invalid image file for detection: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # Run detection
+    try:
+        if is_async:
+            detections = await detection_func(pil_image)
+        else:
+            detections = await run_in_threadpool(detection_func, pil_image)
+        return DetectionResponse(detections=detections)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
 
 @app.get("/api/ml-status", response_model=MLStatusResponse)
 async def ml_status():
@@ -679,11 +719,9 @@ def get_nearby_issues(
         logger.error(f"Error getting nearby issues: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve nearby issues")
 
-@app.post("/api/issues/{issue_id}/verify", response_model=VoteResponse)
-def verify_issue(issue_id: int, db: Session = Depends(get_db)):
+def manual_verify_issue(issue_id: int, db: Session):
     """
-    Manually verify an existing issue (similar to upvoting but indicates verification).
-    This can be used when users choose to verify an existing issue instead of creating a duplicate.
+    Helper for manual verification logic.
     """
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
@@ -842,7 +880,8 @@ async def analyze_urgency_endpoint(request: Request, urgency_req: UrgencyAnalysi
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     try:
-        response = await chat_with_civic_assistant(request.query)
+        ai_services = get_ai_services()
+        response = await ai_services.chat_service.chat(request.query)
         return ChatResponse(response=response)
     except Exception as e:
         logger.error(f"Chat service error: {e}", exc_info=True)
@@ -914,130 +953,39 @@ def get_recent_issues(db: Session = Depends(get_db)):
 
 @app.post("/api/detect-pothole", response_model=DetectionResponse)
 async def detect_pothole_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for pothole detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection (blocking, so run in threadpool)
-    try:
-        detections = await run_in_threadpool(detect_potholes, pil_image)
-        return DetectionResponse(detections=detections)
-    except Exception as e:
-        logger.error(f"Pothole detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Pothole detection service temporarily unavailable")
+    return await process_and_detect(image, detect_potholes, is_async=False)
 
 @app.post("/api/detect-infrastructure", response_model=DetectionResponse)
 async def detect_infrastructure_endpoint(request: Request, image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for infrastructure detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection using unified service (local ML by default)
-    try:
-        # Use shared HTTP client from app state
-        client = request.app.state.http_client
-        detections = await detect_infrastructure_local(pil_image, client=client)
-        return DetectionResponse(detections=detections)
-    except Exception as e:
-        logger.error(f"Infrastructure detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Infrastructure detection service temporarily unavailable")
+    client = request.app.state.http_client
+    return await process_and_detect(
+        image,
+        lambda img: detect_infrastructure_local(img, client=client),
+        is_async=True
+    )
 
 @app.post("/api/detect-flooding", response_model=DetectionResponse)
 async def detect_flooding_endpoint(request: Request, image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for flooding detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection using unified service (local ML by default)
-    try:
-        # Use shared HTTP client from app state
-        client = request.app.state.http_client
-        detections = await detect_flooding_local(pil_image, client=client)
-        return DetectionResponse(detections=detections)
-    except Exception as e:
-        logger.error(f"Flooding detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Flooding detection service temporarily unavailable")
+    client = request.app.state.http_client
+    return await process_and_detect(
+        image,
+        lambda img: detect_flooding_local(img, client=client),
+        is_async=True
+    )
 
 # FIXED: Standardized Detection Endpoints with Consistent Validation
 @app.post("/api/detect-vandalism", response_model=DetectionResponse)
 async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection using unified service (local ML by default)
-    try:
-        # Use shared HTTP client from app state
-        client = request.app.state.http_client
-        detections = await detect_vandalism_local(pil_image, client=client)
-        return DetectionResponse(detections=detections)
-    except Exception as e:
-        logger.error(f"Vandalism detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+    client = request.app.state.http_client
+    return await process_and_detect(
+        image,
+        lambda img: detect_vandalism_local(img, client=client),
+        is_async=True
+    )
 
 @app.post("/api/detect-garbage", response_model=DetectionResponse)
 async def detect_garbage_endpoint(image: UploadFile = File(...)):
-    # Validate uploaded file
-    await validate_uploaded_file(image)
-    
-    # Convert to PIL Image directly from file object to save memory
-    try:
-        pil_image = await run_in_threadpool(Image.open, image.file)
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions from validation
-    except Exception as e:
-        logger.error(f"Invalid image file for garbage detection: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Run detection (blocking, so run in threadpool)
-    try:
-        detections = await run_in_threadpool(detect_garbage, pil_image)
-        return DetectionResponse(detections=detections)
-    except Exception as e:
-        logger.error(f"Garbage detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Detection service temporarily unavailable")
+    return await process_and_detect(image, detect_garbage, is_async=False)
 
 @app.post("/api/detect-illegal-parking")
 async def detect_illegal_parking_endpoint(request: Request, image: UploadFile = File(...)):
@@ -1188,68 +1136,78 @@ async def detect_smart_scan_endpoint(request: Request, image: UploadFile = File(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.post("/api/issues/{issue_id}/verify")
-async def verify_issue_resolution(
+@app.post("/api/issues/{issue_id}/verify", response_model=Union[VoteResponse, Dict[str, Any]])
+async def verify_issue_endpoint(
     issue_id: int,
     request: Request,
-    image: UploadFile = File(...),
+    image: UploadFile = File(None),
     db: Session = Depends(get_db)
 ):
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue not found")
+    """
+    Combined endpoint for verification:
+    - If image is provided: Checks if issue is resolved using AI (VQA).
+    - If no image: Manually verifies (upvotes) the issue.
+    """
+    if image:
+        # AI Resolution Verification
+        issue = db.query(Issue).filter(Issue.id == issue_id).first()
+        if not issue:
+            raise HTTPException(status_code=404, detail="Issue not found")
 
-    # Validate uploaded file
-    await validate_uploaded_file(image)
+        # Validate uploaded file
+        await validate_uploaded_file(image)
 
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+        try:
+            image_bytes = await image.read()
+        except Exception as e:
+            logger.error(f"Invalid image file: {e}", exc_info=True)
+            raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Construct question
-    category = issue.category.lower() if issue.category else "issue"
-    question = f"Is there a {category} in this image?"
+        # Construct question
+        category = issue.category.lower() if issue.category else "issue"
+        question = f"Is there a {category} in this image?"
 
-    # Custom questions for common categories
-    if "pothole" in category:
-        question = "Is there a pothole on the road?"
-    elif "garbage" in category or "waste" in category:
-        question = "Is there garbage or trash on the ground?"
-    elif "light" in category:
-        question = "Is the streetlight broken?"
-    elif "water" in category or "flood" in category:
-        question = "Is the street flooded?"
-    elif "tree" in category:
-        question = "Is there a fallen tree?"
+        # Custom questions for common categories
+        if "pothole" in category:
+            question = "Is there a pothole on the road?"
+        elif "garbage" in category or "waste" in category:
+            question = "Is there garbage or trash on the ground?"
+        elif "light" in category:
+            question = "Is the streetlight broken?"
+        elif "water" in category or "flood" in category:
+            question = "Is the street flooded?"
+        elif "tree" in category:
+            question = "Is there a fallen tree?"
 
-    try:
-        client = request.app.state.http_client
-        result = await verify_resolution_vqa(image_bytes, question, client)
+        try:
+            client = request.app.state.http_client
+            result = await verify_resolution_vqa(image_bytes, question, client)
 
-        answer = result.get('answer', 'unknown')
-        confidence = result.get('confidence', 0)
+            answer = result.get('answer', 'unknown')
+            confidence = result.get('confidence', 0)
 
-        # If the answer is "no" (meaning the issue is NOT present), we consider it resolved.
-        is_resolved = False
-        if answer.lower() in ["no", "none", "nothing"] and confidence > 0.5:
-            is_resolved = True
-            # Update status if not already resolved
-            if issue.status != "resolved":
-                issue.status = "verified" # Mark as verified (resolved usually implies closed)
-                issue.verified_at = datetime.now(timezone.utc)
-                db.commit()
+            # If the answer is "no" (meaning the issue is NOT present), we consider it resolved.
+            is_resolved = False
+            if answer.lower() in ["no", "none", "nothing"] and confidence > 0.5:
+                is_resolved = True
+                # Update status if not already resolved
+                if issue.status != "resolved":
+                    issue.status = "verified" # Mark as verified (resolved usually implies closed)
+                    issue.verified_at = datetime.now(timezone.utc)
+                    db.commit()
 
-        return {
-            "is_resolved": is_resolved,
-            "ai_answer": answer,
-            "confidence": confidence,
-            "question_asked": question
-        }
-    except Exception as e:
-        logger.error(f"Resolution verification error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Verification service temporarily unavailable")
+            return {
+                "is_resolved": is_resolved,
+                "ai_answer": answer,
+                "confidence": confidence,
+                "question_asked": question
+            }
+        except Exception as e:
+            logger.error(f"Resolution verification error: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Verification service temporarily unavailable")
+    else:
+        # Manual Verification
+        return await run_in_threadpool(manual_verify_issue, issue_id, db)
 
 
 @app.post("/api/generate-description")

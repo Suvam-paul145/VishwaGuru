@@ -14,16 +14,23 @@ def override_get_db():
     finally:
         pass
 
-app.dependency_overrides[get_db] = override_get_db
-
 # Mock http_client in app state
 app.state.http_client = MagicMock()
 
-client = TestClient(app)
+@pytest.fixture(scope="module", autouse=True)
+def setup_dependency_overrides():
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides = {}
+
+@pytest.fixture
+def client():
+    with TestClient(app) as c:
+        yield c
 
 @patch("backend.main.validate_uploaded_file", new_callable=AsyncMock)
 @patch("backend.main.verify_resolution_vqa", new_callable=AsyncMock)
-def test_verify_issue_resolution_resolved(mock_verify, mock_validate):
+def test_verify_issue_resolution_resolved(mock_verify, mock_validate, client):
     # Reset mock
     mock_db.reset_mock()
 
@@ -51,7 +58,7 @@ def test_verify_issue_resolution_resolved(mock_verify, mock_validate):
 
 @patch("backend.main.validate_uploaded_file", new_callable=AsyncMock)
 @patch("backend.main.verify_resolution_vqa", new_callable=AsyncMock)
-def test_verify_issue_resolution_not_resolved(mock_verify, mock_validate):
+def test_verify_issue_resolution_not_resolved(mock_verify, mock_validate, client):
     # Reset mock
     mock_db.reset_mock()
 
