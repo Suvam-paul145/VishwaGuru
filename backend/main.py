@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, defer
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from functools import lru_cache
-from typing import List
+from typing import List, Union, Dict, Any, Optional
 from datetime import datetime, timedelta, timezone
 from PIL import Image
 
@@ -41,7 +41,6 @@ from backend.schemas import (
 from backend.exceptions import EXCEPTION_HANDLERS
 from backend.bot import run_bot, start_bot_thread, stop_bot_thread
 from backend.ai_factory import create_all_ai_services
-from backend.ai_service import generate_action_plan, chat_with_civic_assistant
 from backend.maharashtra_locator import (
     load_maharashtra_pincode_data,
     load_maharashtra_mla_data,
@@ -218,7 +217,8 @@ async def process_action_plan_background(issue_id: int, description: str, catego
     db = SessionLocal()
     try:
         # Generate Action Plan (AI)
-        action_plan = await generate_action_plan(description, category, language, image_path)
+        ai_services = get_ai_services()
+        action_plan = await ai_services.action_plan_service.generate_action_plan(description, category, language, image_path)
 
         # Update issue in DB
         issue = db.query(Issue).filter(Issue.id == issue_id).first()
@@ -706,34 +706,6 @@ def get_nearby_issues(
         logger.error(f"Error getting nearby issues: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve nearby issues")
 
-@app.post("/api/issues/{issue_id}/verify", response_model=VoteResponse)
-def verify_issue(issue_id: int, db: Session = Depends(get_db)):
-    """
-    Manually verify an existing issue (similar to upvoting but indicates verification).
-    This can be used when users choose to verify an existing issue instead of creating a duplicate.
-    """
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue not found")
-
-    # Increment upvotes (verification counts as strong support)
-    if issue.upvotes is None:
-        issue.upvotes = 0
-    issue.upvotes += 2  # Verification counts as 2 upvotes
-
-    # If issue has enough verifications, consider upgrading status
-    if issue.upvotes >= 5 and issue.status == "open":
-        issue.status = "verified"
-        logger.info(f"Issue {issue_id} automatically verified due to {issue.upvotes} upvotes")
-
-    db.commit()
-    db.refresh(issue)
-
-    return VoteResponse(
-        id=issue.id,
-        upvotes=issue.upvotes,
-        message="Issue verified successfully"
-    )
 
 @app.put("/api/issues/status", response_model=IssueStatusUpdateResponse)
 def update_issue_status(
@@ -869,7 +841,8 @@ async def analyze_urgency_endpoint(request: Request, urgency_req: UrgencyAnalysi
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     try:
-        response = await chat_with_civic_assistant(request.query)
+        ai_services = get_ai_services()
+        response = await ai_services.chat_service.chat(request.query)
         return ChatResponse(response=response)
     except Exception as e:
         logger.error(f"Chat service error: {e}", exc_info=True)
@@ -1245,68 +1218,105 @@ async def detect_smart_scan_endpoint(request: Request, image: UploadFile = File(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.post("/api/issues/{issue_id}/verify")
-async def verify_issue_resolution(
+@app.post("/api/issues/{issue_id}/verify", response_model=Union[VoteResponse, Dict[str, Any]])
+async def verify_issue_endpoint(
     issue_id: int,
     request: Request,
-    image: UploadFile = File(...),
+    image: UploadFile = File(None),
     db: Session = Depends(get_db)
 ):
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    """
+    Verify an issue.
+    If an image is provided, performs AI-based resolution verification.
+    If no image is provided, performs manual verification (upvote + status check).
+    """
+    # Use threadpool for blocking DB query
+    issue = await run_in_threadpool(lambda: db.query(Issue).filter(Issue.id == issue_id).first())
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
 
-    # Validate uploaded file
-    await validate_uploaded_file(image)
+    if image:
+        # --- AI Verification Logic ---
+        # Validate uploaded file
+        await validate_uploaded_file(image)
 
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+        try:
+            image_bytes = await image.read()
+        except Exception as e:
+            logger.error(f"Invalid image file: {e}", exc_info=True)
+            raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Construct question
-    category = issue.category.lower() if issue.category else "issue"
-    question = f"Is there a {category} in this image?"
+        # Construct question
+        category = issue.category.lower() if issue.category else "issue"
+        question = f"Is there a {category} in this image?"
 
-    # Custom questions for common categories
-    if "pothole" in category:
-        question = "Is there a pothole on the road?"
-    elif "garbage" in category or "waste" in category:
-        question = "Is there garbage or trash on the ground?"
-    elif "light" in category:
-        question = "Is the streetlight broken?"
-    elif "water" in category or "flood" in category:
-        question = "Is the street flooded?"
-    elif "tree" in category:
-        question = "Is there a fallen tree?"
+        # Custom questions for common categories
+        if "pothole" in category:
+            question = "Is there a pothole on the road?"
+        elif "garbage" in category or "waste" in category:
+            question = "Is there garbage or trash on the ground?"
+        elif "light" in category:
+            question = "Is the streetlight broken?"
+        elif "water" in category or "flood" in category:
+            question = "Is the street flooded?"
+        elif "tree" in category:
+            question = "Is there a fallen tree?"
 
-    try:
-        client = request.app.state.http_client
-        result = await verify_resolution_vqa(image_bytes, question, client)
+        try:
+            client = request.app.state.http_client
+            result = await verify_resolution_vqa(image_bytes, question, client)
 
-        answer = result.get('answer', 'unknown')
-        confidence = result.get('confidence', 0)
+            answer = result.get('answer', 'unknown')
+            confidence = result.get('confidence', 0)
 
-        # If the answer is "no" (meaning the issue is NOT present), we consider it resolved.
-        is_resolved = False
-        if answer.lower() in ["no", "none", "nothing"] and confidence > 0.5:
-            is_resolved = True
-            # Update status if not already resolved
-            if issue.status != "resolved":
-                issue.status = "verified" # Mark as verified (resolved usually implies closed)
-                issue.verified_at = datetime.now(timezone.utc)
-                db.commit()
+            # If the answer is "no" (meaning the issue is NOT present), we consider it resolved.
+            is_resolved = False
+            if answer.lower() in ["no", "none", "nothing"] and confidence > 0.5:
+                is_resolved = True
 
-        return {
-            "is_resolved": is_resolved,
-            "ai_answer": answer,
-            "confidence": confidence,
-            "question_asked": question
-        }
-    except Exception as e:
-        logger.error(f"Resolution verification error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Verification service temporarily unavailable")
+                # Update status in threadpool (blocking DB op)
+                def update_status_sync():
+                    if issue.status != "resolved":
+                        issue.status = "verified" # Mark as verified
+                        issue.verified_at = datetime.now(timezone.utc)
+                        db.commit()
+
+                await run_in_threadpool(update_status_sync)
+
+            return {
+                "is_resolved": is_resolved,
+                "ai_answer": answer,
+                "confidence": confidence,
+                "question_asked": question
+            }
+        except Exception as e:
+            logger.error(f"Resolution verification error: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Verification service temporarily unavailable")
+
+    else:
+        # --- Manual Verification Logic ---
+        def manual_verify_sync():
+            # Increment upvotes (verification counts as strong support)
+            if issue.upvotes is None:
+                issue.upvotes = 0
+            issue.upvotes += 2  # Verification counts as 2 upvotes
+
+            # If issue has enough verifications, consider upgrading status
+            if issue.upvotes >= 5 and issue.status == "open":
+                issue.status = "verified"
+                logger.info(f"Issue {issue_id} automatically verified due to {issue.upvotes} upvotes")
+
+            db.commit()
+            db.refresh(issue)
+            return issue
+
+        updated_issue = await run_in_threadpool(manual_verify_sync)
+
+        return VoteResponse(
+            id=updated_issue.id,
+            upvotes=updated_issue.upvotes,
+            message="Issue verified successfully"
+        )
 
 
 @app.post("/api/generate-description")
