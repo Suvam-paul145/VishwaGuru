@@ -73,6 +73,20 @@ def migrate_db():
             except Exception:
                 pass
 
+            # Add index on latitude for faster spatial queries
+            try:
+                conn.execute(text("CREATE INDEX ix_issues_latitude ON issues (latitude)"))
+                logger.info("Migrated database: Added index on latitude column.")
+            except Exception:
+                pass
+
+            # Add index on longitude for faster spatial queries
+            try:
+                conn.execute(text("CREATE INDEX ix_issues_longitude ON issues (longitude)"))
+                logger.info("Migrated database: Added index on longitude column.")
+            except Exception:
+                pass
+
             conn.commit()
             logger.info("Database migration check completed.")
     except Exception as e:
