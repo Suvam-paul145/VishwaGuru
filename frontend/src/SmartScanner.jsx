@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as tf from '@tensorflow/tfjs';
 import * as mobilenet from '@tensorflow-models/mobilenet';
@@ -16,7 +16,7 @@ const SmartScanner = ({ onBack }) => {
     const lastSentRef = useRef(0);
     const navigate = useNavigate();
 
-    const startCamera = async () => {
+    const startCamera = useCallback(async () => {
         setError(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -33,17 +33,17 @@ const SmartScanner = ({ onBack }) => {
             setError("Could not access camera: " + err.message);
             setIsDetecting(false);
         }
-    };
+    }, []);
 
-    const stopCamera = () => {
+    const stopCamera = useCallback(() => {
         if (videoRef.current && videoRef.current.srcObject) {
             const tracks = videoRef.current.srcObject.getTracks();
             tracks.forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
-    };
+    }, []);
 
-    const calculateFrameDifference = (currentData, previousData) => {
+    const calculateFrameDifference = useCallback((currentData, previousData) => {
         if (!previousData) return 1; // First frame, consider as change
         let diff = 0;
         for (let i = 0; i < currentData.length; i += 4) {
@@ -52,9 +52,9 @@ const SmartScanner = ({ onBack }) => {
                     Math.abs(currentData[i + 2] - previousData[i + 2]); // B
         }
         return diff / (currentData.length / 4) / 255; // Average difference normalized
-    };
+    }, []);
 
-    const detectFrame = async () => {
+    const detectFrame = useCallback(async () => {
         if (!videoRef.current || !canvasRef.current || !isDetecting || !model) return;
 
         const video = videoRef.current;
@@ -121,7 +121,7 @@ const SmartScanner = ({ onBack }) => {
             // Local detection: low confidence, consider safe
             setDetection({ label: 'Safe', score: topPrediction.probability });
         }
-    };
+    }, [isDetecting, model, previousFrame, calculateFrameDifference]);
 
     const mapLabelToCategory = (label) => {
         // Map CLIP labels to ReportForm categories
@@ -177,7 +177,7 @@ const SmartScanner = ({ onBack }) => {
             stopCamera();
             if (interval) clearInterval(interval);
         };
-    }, [isDetecting]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isDetecting, startCamera, stopCamera, detectFrame]);
 
     return (
         <div className="mt-6 flex flex-col items-center w-full">

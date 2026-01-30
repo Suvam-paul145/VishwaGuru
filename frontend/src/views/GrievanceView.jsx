@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { grievancesApi } from '../api';
 
 const GrievanceView = () => {
@@ -14,7 +14,7 @@ const GrievanceView = () => {
     offset: 0
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -32,11 +32,11 @@ const GrievanceView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     loadData();
-  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadData]);
 
   const handleEscalate = async (grievanceId) => {
     const reason = prompt('Enter reason for escalation:');

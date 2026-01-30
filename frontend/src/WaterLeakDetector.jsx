@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -8,7 +8,7 @@ const WaterLeakDetector = ({ onBack }) => {
     const [isDetecting, setIsDetecting] = useState(false);
     const [error, setError] = useState(null);
 
-    const startCamera = async () => {
+    const startCamera = useCallback(async () => {
         setError(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -25,17 +25,17 @@ const WaterLeakDetector = ({ onBack }) => {
             setError("Could not access camera: " + err.message);
             setIsDetecting(false);
         }
-    };
+    }, []);
 
-    const stopCamera = () => {
+    const stopCamera = useCallback(() => {
         if (videoRef.current && videoRef.current.srcObject) {
             const tracks = videoRef.current.srcObject.getTracks();
             tracks.forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
-    };
+    }, []);
 
-    const drawDetections = (detections, context) => {
+    const drawDetections = useCallback((detections, context) => {
         context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
         detections.forEach((det, index) => {
@@ -56,9 +56,9 @@ const WaterLeakDetector = ({ onBack }) => {
                  context.fillText(label, 20, yPos - 4);
             }
         });
-    };
+    }, []);
 
-    const detectFrame = async () => {
+    const detectFrame = useCallback(async () => {
         if (!videoRef.current || !canvasRef.current || !isDetecting) return;
 
         const video = videoRef.current;
@@ -94,7 +94,7 @@ const WaterLeakDetector = ({ onBack }) => {
                 console.error("Detection error");
             }
         }, 'image/jpeg', 0.8);
-    };
+    }, [isDetecting, drawDetections]);
 
     useEffect(() => {
         let interval;
@@ -114,7 +114,7 @@ const WaterLeakDetector = ({ onBack }) => {
             stopCamera();
             if (interval) clearInterval(interval);
         };
-    }, [isDetecting]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isDetecting, startCamera, stopCamera, detectFrame]);
 
     return (
         <div className="mt-6 flex flex-col items-center w-full">

@@ -65,7 +65,7 @@ const VandalismDetector = () => {
                 ref={webcamRef}
                 screenshotFormat="image/jpeg"
                 className="w-full h-full object-cover"
-                onUserMediaError={(err) => setCameraError("Could not access camera. Please check permissions.")}
+                onUserMediaError={() => setCameraError("Could not access camera. Please check permissions.")}
               />
             ) : (
               <div className="relative">
