@@ -381,6 +381,7 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
               <option value="streetlight">Streetlight</option>
               <option value="college_infra">College Infrastructure</option>
               <option value="women_safety">Women Safety</option>
+              <option value="vandalism">Vandalism / Graffiti</option>
             </select>
             {analyzingSmartScan && (
                 <div className="text-xs text-blue-600 mt-1 animate-pulse flex items-center gap-1">

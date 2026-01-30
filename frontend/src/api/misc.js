@@ -25,5 +25,9 @@ export const miscApi = {
 
   getLeaderboard: async () => {
       return await apiClient.get('/api/leaderboard');
+  },
+
+  transcribeAudio: async (formData) => {
+      return await apiClient.postForm('/api/transcribe-audio', formData);
   }
 };

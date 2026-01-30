@@ -30,6 +30,9 @@ DEPTH_API_URL = "https://router.huggingface.co/models/Intel/dpt-hybrid-midas"
 # Audio Classification Model
 AUDIO_CLASS_API_URL = "https://router.huggingface.co/models/MIT/ast-finetuned-audioset-10-10-0.4593"
 
+# Audio Transcription Model
+WHISPER_API_URL = "https://router.huggingface.co/models/openai/whisper-large-v3-turbo"
+
 async def _make_request(client, url, payload):
     try:
         response = await client.post(url, headers=headers, json=payload, timeout=20.0)
@@ -165,6 +168,33 @@ async def detect_audio_event(audio_bytes: bytes, client: httpx.AsyncClient = Non
     except Exception as e:
         logger.error(f"Audio Detection Error: {e}")
         return []
+
+async def transcribe_audio(audio_bytes: bytes, client: httpx.AsyncClient = None):
+    """
+    Transcribes audio using OpenAI Whisper via Hugging Face API.
+    """
+    try:
+        headers_bin = {"Authorization": f"Bearer {token}"} if token else {}
+
+        async def do_post(c):
+             return await c.post(WHISPER_API_URL, headers=headers_bin, content=audio_bytes, timeout=30.0)
+
+        if client:
+            response = await do_post(client)
+        else:
+            async with httpx.AsyncClient() as new_client:
+                response = await do_post(new_client)
+
+        if response.status_code == 200:
+            # Result is usually {"text": "..."}
+            data = response.json()
+            return data.get("text", "")
+        else:
+            logger.error(f"Whisper API Error: {response.status_code} - {response.text}")
+            return ""
+    except Exception as e:
+        logger.error(f"Audio Transcription Error: {e}")
+        return ""
 
 async def detect_severity_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
     """
