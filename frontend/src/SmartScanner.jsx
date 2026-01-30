@@ -29,21 +29,6 @@ const SmartScanner = ({ onBack }) => {
         loadModel();
     }, []);
 
-    useEffect(() => {
-        let interval;
-        if (isDetecting) {
-            startCamera();
-            interval = setInterval(detectFrame, 1000);
-        } else {
-            stopCamera();
-            if (interval) clearInterval(interval);
-        }
-        return () => {
-            stopCamera();
-            if (interval) clearInterval(interval);
-        };
-    }, [isDetecting]);
-
     const startCamera = async () => {
         setError(null);
         try {
@@ -150,6 +135,21 @@ const SmartScanner = ({ onBack }) => {
             setDetection({ label: 'Safe', score: topPrediction.probability });
         }
     };
+
+    useEffect(() => {
+        let interval;
+        if (isDetecting) {
+            startCamera(); // eslint-disable-line
+            interval = setInterval(detectFrame, 1000);
+        } else {
+            stopCamera();
+            if (interval) clearInterval(interval);
+        }
+        return () => {
+            stopCamera();
+            if (interval) clearInterval(interval);
+        };
+    }, [isDetecting]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleReport = () => {
         if (detection && detection.label && detection.label !== 'Safe' && detection.label !== 'unknown') {

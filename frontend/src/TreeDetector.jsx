@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
 
 const TreeDetector = ({ onBack }) => {

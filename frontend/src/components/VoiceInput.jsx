@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { miscApi } from '../api';
 
-const VoiceInput = ({ onTranscript, language = 'en' }) => {
+const VoiceInput = ({ onTranscript }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);

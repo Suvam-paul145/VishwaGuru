@@ -8,25 +8,6 @@ const WaterLeakDetector = ({ onBack }) => {
     const [isDetecting, setIsDetecting] = useState(false);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        let interval;
-        if (isDetecting) {
-            startCamera();
-            interval = setInterval(detectFrame, 2000); // Check every 2 seconds
-        } else {
-            stopCamera();
-            if (interval) clearInterval(interval);
-            if (canvasRef.current) {
-                const ctx = canvasRef.current.getContext('2d');
-                ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-            }
-        }
-        return () => {
-            stopCamera();
-            if (interval) clearInterval(interval);
-        };
-    }, [isDetecting]);
-
     const startCamera = async () => {
         setError(null);
         try {
@@ -52,6 +33,31 @@ const WaterLeakDetector = ({ onBack }) => {
             tracks.forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
+    };
+
+    const drawDetections = (detections, context) => {
+        context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+
+        detections.forEach((det, index) => {
+            if (det.box && det.box.length === 4) {
+                 const [x1, y1, x2, y2] = det.box;
+                 context.strokeStyle = '#00BFFF'; // Deep Sky Blue for water
+                 context.lineWidth = 4;
+                 context.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                 // ... label drawing ...
+            } else {
+                 // Zero-shot detection (no box)
+                 context.font = 'bold 20px Arial';
+                 context.fillStyle = 'rgba(0, 191, 255, 0.8)';
+                 const label = `${det.label} ${(det.confidence * 100).toFixed(0)}%`;
+                 const textWidth = context.measureText(label).width;
+
+                 const yPos = 40 + (index * 50);
+                 context.fillRect(10, yPos - 30, textWidth + 20, 40);
+                 context.fillStyle = '#FFFFFF';
+                 context.fillText(label, 20, yPos - 4);
+            }
+        });
     };
 
     const detectFrame = async () => {
@@ -92,30 +98,24 @@ const WaterLeakDetector = ({ onBack }) => {
         }, 'image/jpeg', 0.8);
     };
 
-    const drawDetections = (detections, context) => {
-        context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-
-        detections.forEach((det, index) => {
-            if (det.box && det.box.length === 4) {
-                 const [x1, y1, x2, y2] = det.box;
-                 context.strokeStyle = '#00BFFF'; // Deep Sky Blue for water
-                 context.lineWidth = 4;
-                 context.strokeRect(x1, y1, x2 - x1, y2 - y1);
-                 // ... label drawing ...
-            } else {
-                 // Zero-shot detection (no box)
-                 context.font = 'bold 20px Arial';
-                 context.fillStyle = 'rgba(0, 191, 255, 0.8)';
-                 const label = `${det.label} ${(det.confidence * 100).toFixed(0)}%`;
-                 const textWidth = context.measureText(label).width;
-
-                 const yPos = 40 + (index * 50);
-                 context.fillRect(10, yPos - 30, textWidth + 20, 40);
-                 context.fillStyle = '#FFFFFF';
-                 context.fillText(label, 20, yPos - 4);
+    useEffect(() => {
+        let interval;
+        if (isDetecting) {
+            startCamera(); // eslint-disable-line
+            interval = setInterval(detectFrame, 2000); // Check every 2 seconds
+        } else {
+            stopCamera();
+            if (interval) clearInterval(interval);
+            if (canvasRef.current) {
+                const ctx = canvasRef.current.getContext('2d');
+                ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
             }
-        });
-    };
+        }
+        return () => {
+            stopCamera();
+            if (interval) clearInterval(interval);
+        };
+    }, [isDetecting]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="mt-6 flex flex-col items-center w-full">
