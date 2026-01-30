@@ -36,8 +36,7 @@ const GrievanceView = () => {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEscalate = async (grievanceId) => {
     const reason = prompt('Enter reason for escalation:');

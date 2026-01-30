@@ -16,19 +16,6 @@ const SmartScanner = ({ onBack }) => {
     const lastSentRef = useRef(0);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const loadModel = async () => {
-            try {
-                await tf.ready();
-                const loadedModel = await mobilenet.load();
-                setModel(loadedModel);
-            } catch (err) {
-                console.error('Failed to load model:', err);
-            }
-        };
-        loadModel();
-    }, []);
-
     const startCamera = async () => {
         setError(null);
         try {
@@ -126,39 +113,13 @@ const SmartScanner = ({ onBack }) => {
                         const data = await response.json();
                         setDetection({ label: data.category, score: data.confidence });
                     }
-                } catch (err) {
-                    console.error("Detection error:", err);
+                } catch (err) { // eslint-disable-line no-unused-vars
+                    console.error("Detection error");
                 }
             }, 'image/jpeg', 0.8);
         } else {
             // Local detection: low confidence, consider safe
             setDetection({ label: 'Safe', score: topPrediction.probability });
-        }
-    };
-
-    useEffect(() => {
-        let interval;
-        if (isDetecting) {
-            startCamera(); // eslint-disable-line
-            interval = setInterval(detectFrame, 1000);
-        } else {
-            stopCamera();
-            if (interval) clearInterval(interval);
-        }
-        return () => {
-            stopCamera();
-            if (interval) clearInterval(interval);
-        };
-    }, [isDetecting]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const handleReport = () => {
-        if (detection && detection.label && detection.label !== 'Safe' && detection.label !== 'unknown') {
-            navigate('/report', {
-                state: {
-                    category: mapLabelToCategory(detection.label),
-                    description: `Detected ${detection.label} using Smart Scanner.`
-                }
-            });
         }
     };
 
@@ -177,6 +138,46 @@ const SmartScanner = ({ onBack }) => {
         };
         return map[label] || 'road';
     };
+
+    const handleReport = () => {
+        if (detection && detection.label && detection.label !== 'Safe' && detection.label !== 'unknown') {
+            navigate('/report', {
+                state: {
+                    category: mapLabelToCategory(detection.label),
+                    description: `Detected ${detection.label} using Smart Scanner.`
+                }
+            });
+        }
+    };
+
+    useEffect(() => {
+        const loadModel = async () => {
+            try {
+                await tf.ready();
+                const loadedModel = await mobilenet.load();
+                setModel(loadedModel);
+            } catch (err) { // eslint-disable-line no-unused-vars
+                console.error('Failed to load model');
+            }
+        };
+        loadModel();
+    }, []);
+
+    useEffect(() => {
+        let interval;
+        if (isDetecting) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            startCamera();
+            interval = setInterval(detectFrame, 1000);
+        } else {
+            stopCamera();
+            if (interval) clearInterval(interval);
+        }
+        return () => {
+            stopCamera();
+            if (interval) clearInterval(interval);
+        };
+    }, [isDetecting]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="mt-6 flex flex-col items-center w-full">
