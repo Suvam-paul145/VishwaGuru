@@ -18,7 +18,7 @@ def test_read_main(client):
     assert json_response["data"]["service"] == "VishwaGuru API"
 
 @patch("backend.main.magic.from_buffer")
-@patch("backend.main.detect_vandalism_local", new_callable=AsyncMock)
+@patch("backend.main.detect_vandalism_clip", new_callable=AsyncMock)
 @patch("backend.main.run_in_threadpool")
 @patch("backend.main.Image.open")
 def test_detect_vandalism(mock_image_open, mock_run, mock_detect_vandalism, mock_magic, client):

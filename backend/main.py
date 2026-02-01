@@ -56,12 +56,12 @@ from backend.garbage_detection import detect_garbage
 from backend.local_ml_service import (
     detect_infrastructure_local,
     detect_flooding_local,
-    detect_vandalism_local,
     get_detection_status
 )
 from backend.gemini_services import get_ai_services, initialize_ai_services
 from backend.spatial_utils import find_nearby_issues, get_bounding_box
 from backend.hf_api_service import (
+    detect_vandalism_clip,
     detect_illegal_parking_clip,
     detect_street_light_clip,
     detect_fire_clip,
@@ -1170,11 +1170,11 @@ async def detect_vandalism_endpoint(request: Request, image: UploadFile = File(.
         logger.error(f"Invalid image file for vandalism detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Run detection using unified service (local ML by default)
+    # Run detection using HF API (Lightweight)
     try:
         # Use shared HTTP client from app state
         client = request.app.state.http_client
-        detections = await detect_vandalism_local(pil_image, client=client)
+        detections = await detect_vandalism_clip(pil_image, client=client)
         return DetectionResponse(detections=detections)
     except Exception as e:
         logger.error(f"Vandalism detection error: {e}", exc_info=True)
