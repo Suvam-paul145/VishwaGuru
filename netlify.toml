@@ -2,9 +2,8 @@
 
 # Build settings
 [build]
-  base = "frontend"
-  publish = "dist"
-  command = "npm install && npm run build"
+  publish = "frontend/dist"
+  command = "npm install --prefix frontend && npm run build --prefix frontend"
 
 # Build environment
 [build.environment]
