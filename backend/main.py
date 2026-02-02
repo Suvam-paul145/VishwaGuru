@@ -51,7 +51,7 @@ from backend.maharashtra_locator import (
     find_mla_by_constituency
 )
 from backend.init_db import migrate_db
-from backend.pothole_detection import detect_potholes, validate_image_for_processing
+from backend.pothole_detection import detect_potholes, validate_image_for_processing, is_model_available
 from backend.grievance_service import GrievanceService
 from backend.unified_detection_service import (
     detect_vandalism as detect_vandalism_unified,
@@ -82,7 +82,8 @@ from backend.hf_api_service import (
     detect_audio_event,
     transcribe_audio,
     detect_waste_clip,
-    detect_civic_eye_clip
+    detect_civic_eye_clip,
+    detect_pothole_clip
 )
 
 # Configure structured logging
@@ -1109,7 +1110,7 @@ def get_recent_issues(db: Session = Depends(get_db)):
     return data
 
 @app.post("/api/detect-pothole", response_model=DetectionResponse)
-async def detect_pothole_endpoint(image: UploadFile = File(...)):
+async def detect_pothole_endpoint(request: Request, image: UploadFile = File(...)):
     # Validate uploaded file
     await validate_uploaded_file(image)
 
@@ -1124,9 +1125,17 @@ async def detect_pothole_endpoint(image: UploadFile = File(...)):
         logger.error(f"Invalid image file for pothole detection: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Run detection (blocking, so run in threadpool)
+    # Run detection
     try:
-        detections = await run_in_threadpool(detect_potholes, pil_image)
+        if is_model_available():
+            # Use local model if available (blocking)
+            detections = await run_in_threadpool(detect_potholes, pil_image)
+        else:
+            # Fallback to Hugging Face API
+            logger.info("Local pothole model unavailable, falling back to HF API")
+            client = request.app.state.http_client
+            detections = await detect_pothole_clip(pil_image, client=client)
+
         return DetectionResponse(detections=detections)
     except Exception as e:
         logger.error(f"Pothole detection error: {e}", exc_info=True)

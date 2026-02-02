@@ -14,8 +14,15 @@ _model_lock: threading.Lock = threading.Lock()
 _model_loading_error: Optional[Exception] = None
 _model_initialized: bool = False
 
-_model = None
-_model_lock = threading.Lock()
+def is_model_available():
+    """
+    Checks if the model dependencies are available.
+    """
+    try:
+        import ultralyticsplus
+        return True
+    except ImportError:
+        return False
 
 def load_model():
     """
@@ -44,9 +51,12 @@ def load_model():
 
         logger.info("Model loaded successfully.")
         return model
+    except ImportError:
+        logger.warning("ultralyticsplus not installed. Pothole detection disabled.")
+        return None
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
-        raise ModelLoadException("keremberke/yolov8n-pothole-segmentation", details={"error": str(e)}) from e
+        return None
 
 
 def get_model():
@@ -147,6 +157,8 @@ def detect_potholes(image_source):
     """
     try:
         model = get_model()
+        if model is None:
+            return []
 
         # perform inference
         # stream=False ensures we get all results in memory

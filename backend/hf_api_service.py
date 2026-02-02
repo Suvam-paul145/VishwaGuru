@@ -91,6 +91,11 @@ async def _detect_clip_generic(image: Union[Image.Image, bytes], labels: List[st
 
 # --- Specific Detectors ---
 
+async def detect_pothole_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    labels = ["pothole", "damaged road", "road crack", "smooth road", "clean street"]
+    targets = ["pothole", "damaged road", "road crack"]
+    return await _detect_clip_generic(image, labels, targets, client)
+
 async def detect_illegal_parking_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
     labels = ["illegal parking", "car blocking driveway", "double parked", "car on sidewalk", "legal parking", "empty street"]
     targets = ["illegal parking", "car blocking driveway", "double parked", "car on sidewalk"]
