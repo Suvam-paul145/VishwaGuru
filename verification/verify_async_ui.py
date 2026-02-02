@@ -6,29 +6,41 @@ def run_dynamic(playwright):
     page = browser.new_page()
 
     # Mutable state for mock
-    responses = {
-        "recent": '[]'
+    issue_response = {
+        "status": "processing" # Initial state representation, or just missing action_plan
     }
 
-    def handle_recent(route):
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=responses["recent"]
-        )
+    # Mock get specific issue
+    def handle_issue_get(route):
+        if issue_response["status"] == "done":
+             route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"id": 123, "action_plan": {"whatsapp": "Hello", "email_subject": "Sub", "email_body": "Body", "x_post": "Tweet"}}'
+            )
+        else:
+             route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"id": 123, "action_plan": null}'
+            )
 
-    page.route("**/api/issues/recent", handle_recent)
-
+    # Mock create response
     page.route("**/api/issues", lambda route: route.fulfill(
         status=200,
         content_type="application/json",
         body='{"id": 123, "message": "success", "action_plan": null}'
     ))
 
-    # Mock detection status to avoid errors on home load if any
+    # Mock specific issue endpoint
+    page.route("**/api/issues/123", handle_issue_get)
+
+    # Mock detection status/others
     page.route("**/api/ml-status", lambda route: route.fulfill(status=200, body='{"status":"ok"}'))
+    page.route("**/api/issues/recent", lambda route: route.fulfill(status=200, body='[]'))
 
     print("Navigating...")
+    # Navigate directly to report or action if possible, but let's follow flow
     page.goto("http://localhost:5173/report")
 
     print("Filling form...")
@@ -41,7 +53,8 @@ def run_dynamic(playwright):
     print("Generating state captured")
 
     # Change mock response to simulate completed AI task
-    responses["recent"] = '[{"id": 123, "action_plan": {"whatsapp": "Hello", "email_subject": "Sub", "email_body": "Body", "x_post": "Tweet"}}]'
+    print("Simulating AI completion...")
+    issue_response["status"] = "done"
 
     print("Waiting for polling update...")
     expect(page.get_by_text("Action Plan Generated!")).to_be_visible(timeout=8000)

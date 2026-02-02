@@ -11,6 +11,10 @@ export const issuesApi = {
     }
   },
 
+  getById: async (id) => {
+    return await apiClient.get(`/api/issues/${id}`);
+  },
+
   create: async (formData) => {
     // formData is expected to be a FormData object containing 'file', 'description', etc.
     return await apiClient.postForm('/api/issues', formData);

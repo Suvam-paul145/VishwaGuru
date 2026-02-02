@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import StatusTracker from '../components/StatusTracker';
-
-// Get API URL from environment variable, fallback to relative URL for local dev
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { issuesApi } from '../api';
 
 const ActionView = ({ actionPlan, setActionPlan, setView }) => {
   if (!actionPlan) return null;
@@ -12,15 +10,10 @@ const ActionView = ({ actionPlan, setActionPlan, setView }) => {
     if (actionPlan.status === 'generating' && actionPlan.id) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`${API_URL}/api/issues/recent`);
-          if (res.ok) {
-            const data = await res.json();
-            // Find the issue by ID
-            const issue = data.find(i => i.id === actionPlan.id);
-            if (issue && issue.action_plan && issue.action_plan.whatsapp) {
-               // Plan is ready!
-               setActionPlan(issue.action_plan);
-            }
+          const issue = await issuesApi.getById(actionPlan.id);
+          if (issue && issue.action_plan && (issue.action_plan.whatsapp || issue.action_plan.email_body)) {
+             // Plan is ready!
+             setActionPlan(issue.action_plan);
           }
         } catch (e) {
           console.error("Polling error:", e);

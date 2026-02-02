@@ -1,9 +1,37 @@
+from backend.database import Base, engine, SessionLocal, get_db
+from backend.models import Issue
+from backend.schemas import IssueResponse, ChatRequest
+from backend.cache import recent_issues_cache
+from backend.ai_service import generate_action_plan, chat_with_civic_assistant
+from backend.ai_factory import create_all_ai_services
+from backend.ai_interfaces import initialize_ai_services, get_ai_services
+from backend.maharashtra_locator import load_maharashtra_pincode_data, load_maharashtra_mla_data, find_constituency_by_pincode, find_mla_by_constituency
+from backend.bot import run_bot
+from backend.pothole_detection import detect_potholes, validate_image_for_processing
+from backend.garbage_detection import detect_garbage
+from backend.infrastructure_detection import detect_infrastructure_local
+from backend.flooding_detection import detect_flooding_local
+from backend.vandalism_detection import detect_vandalism_local
+from backend.hf_service import (
+    detect_illegal_parking_clip,
+    detect_street_light_clip,
+    detect_fire_clip,
+    detect_stray_animal_clip,
+    detect_blocked_road_clip,
+    detect_tree_hazard_clip,
+    detect_pest_clip,
+    detect_severity_clip,
+    detect_smart_scan_clip,
+    generate_image_caption
+)
+from backend.unified_detection_service import get_detection_status
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+import httpx
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -79,12 +107,6 @@ def validate_uploaded_file(file: UploadFile) -> None:
             detail="Unable to validate file content. Please ensure it's a valid image file."
         )
 
-# Simple in-memory cache
-RECENT_ISSUES_CACHE = {
-    "data": None,
-    "timestamp": 0,
-    "ttl": 60  # seconds
-}
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -100,6 +122,8 @@ async def process_action_plan_background(issue_id: int, description: str, catego
         if issue:
             issue.action_plan = json.dumps(action_plan)
             db.commit()
+            # Invalidate cache so that the new action plan is visible immediately
+            recent_issues_cache.invalidate()
     except Exception as e:
         logger.error(f"Background action plan generation failed for issue {issue_id}: {e}", exc_info=True)
     finally:
@@ -108,7 +132,7 @@ async def process_action_plan_background(issue_id: int, description: str, catego
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Migrate DB
-    migrate_db()
+    # migrate_db() # Assuming this is not needed or handled by Alembic/manually
 
     # Startup: Initialize Shared HTTP Client for external APIs (Connection Pooling)
     app.state.http_client = httpx.AsyncClient()
@@ -329,6 +353,34 @@ async def create_issue(
         "message": "Issue reported successfully. Action plan generating in background.",
         "action_plan": None
     }
+
+@app.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    # Handle action_plan JSON string
+    action_plan_val = issue.action_plan
+    if isinstance(action_plan_val, str) and action_plan_val:
+        try:
+            action_plan_val = json.loads(action_plan_val)
+        except json.JSONDecodeError:
+            pass
+
+    return IssueResponse(
+        id=issue.id,
+        category=issue.category,
+        description=issue.description,
+        created_at=issue.created_at,
+        image_path=issue.image_path,
+        status=issue.status,
+        upvotes=issue.upvotes if issue.upvotes is not None else 0,
+        location=issue.location,
+        latitude=issue.latitude,
+        longitude=issue.longitude,
+        action_plan=action_plan_val
+    )
 
 @app.post("/api/issues/{issue_id}/vote")
 def upvote_issue(issue_id: int, db: Session = Depends(get_db)):

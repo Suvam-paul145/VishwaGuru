@@ -4,9 +4,12 @@ VishwaGuru is an open source platform empowering India's youth to engage with de
 
 ## Features
 
-- **AI-Powered Action Plans**: Generates WhatsApp messages and email drafts for civic issues using Google's Gemini API.
+- **AI-Powered Action Plans**: Generates WhatsApp messages, email drafts, and X.com posts for civic issues using Google's Gemini API.
+- **Advanced AI Detection**:
+    - **Local ML**: Uses lightweight YOLOv8 models for offline-capable detection of Potholes, Vandalism, Flooding, and more.
+    - **Hybrid Architecture**: Automatically falls back to Hugging Face API if local models are unavailable.
+- **Find My MLA**: Locate your constituency and representative details using pincode (Maharashtra focused MVP).
 - **Issue Reporting**: Users can report issues via a web interface or a Telegram bot.
-- **Local & Production Ready**: Supports SQLite for local development and PostgreSQL for production.
 - **Modern Stack**: Built with React (Vite) and FastAPI.
 
 ## Architecture & Data Flow
@@ -17,28 +20,29 @@ VishwaGuru uses a unified backend architecture where a single FastAPI service po
 
 1. Users submit civic issues via Web UI or Telegram.
 2. Requests reach the FastAPI backend.
-3. Data is validated and stored in the database.
-4. When needed, the backend sends data to Google Gemini.
-5. AI-generated action plans are returned to users.
+3. Images are analyzed using **Local ML** (YOLOv8) or **Hugging Face** API for validation and categorization.
+4. Data is validated and stored in the database.
+5. Background tasks generate actionable drafts using **Google Gemini**.
+6. AI-generated action plans are pushed to the user.
 
-### Components Interaction
+### Tech Stack
 
-- **Frontend (React + Vite)** communicates with backend via REST APIs.
-- **Backend (FastAPI)** handles logic, validation, and orchestration.
-- **Database** stores civic issues (SQLite locally, PostgreSQL in production).
-- **Gemini AI** generates action plans and message drafts.
-- **Telegram Bot** uses the same backend APIs as the web app.
-
+*   **Frontend**: React, Vite, Tailwind CSS
+*   **Backend**: Python, FastAPI, SQLAlchemy, Pydantic
+*   **AI & ML**:
+    *   Local: YOLOv8 (Ultralytics) for object detection.
+    *   Cloud: Google Gemini (Generative AI), Hugging Face (Fallback).
+*   **Database**: SQLite (Dev), PostgreSQL (Prod)
+*   **Bot**: python-telegram-bot
+*   **Deployment**: Render (Backend) + Netlify (Frontend)
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-
-- **Python 3.8+**
+- **Python 3.10+**
 - **Node.js 18+** and **npm**
 - **Git**
 
-## Installation
+## Installation & Local Development
 
 ### 1. Clone the Repository
 
@@ -49,17 +53,10 @@ cd vishwaguru
 
 ### 2. Backend Setup
 
-The backend handles API requests, database interactions, and the Telegram bot.
-
-1.  Create a virtual environment (in the root directory):
+1.  Create a virtual environment:
     ```bash
-    # Linux/macOS
-    python3 -m venv venv
-    source venv/bin/activate
-
-    # Windows
     python -m venv venv
-    venv\Scripts\activate
+    source venv/bin/activate  # Windows: venv\Scripts\activate
     ```
 
 2.  Install dependencies:
@@ -68,24 +65,26 @@ The backend handles API requests, database interactions, and the Telegram bot.
     ```
 
 3.  **Environment Configuration**:
-    Create a `.env` file in the root of the repository.
-
-    Required Environment Variables:
-    *   `TELEGRAM_BOT_TOKEN`: Token from @BotFather for the Telegram Bot.
-    *   `GEMINI_API_KEY`: API Key from Google AI Studio.
-    *   `DATABASE_URL`: (Optional) Connection string for PostgreSQL. Defaults to `sqlite:///./data/issues.db`.
-
-    **Note**: You can copy the example file:
-    ```bash
-    cp .env.example .env
+    Create a `.env` file in the root directory:
+    ```env
+    TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+    GEMINI_API_KEY=your_gemini_api_key
+    HF_TOKEN=your_huggingface_token_optional
+    DATABASE_URL=sqlite:///./data/issues.db
+    FRONTEND_URL=http://localhost:5173
     ```
-    Then edit `.env` to add your keys.
+
+4.  Start the Backend:
+    ```bash
+    # From the root directory
+    export PYTHONPATH=.
+    python -m uvicorn backend.main:app --reload
+    ```
+    The API will be at `http://localhost:8000`.
 
 ### 3. Frontend Setup
 
-The frontend is a React application built with Vite.
-
-1.  Navigate to the frontend directory:
+1.  Navigate to frontend:
     ```bash
     cd frontend
     ```
@@ -95,156 +94,38 @@ The frontend is a React application built with Vite.
     npm install
     ```
 
-## Running Locally
-
-### Start the Backend Server
-
-From the **root directory** (with your virtual environment activated):
-
-```bash
-PYTHONPATH=backend python -m uvicorn main:app --reload
-```
-
-The API will be available at `http://localhost:8000`.
-
-**Note for Windows**: Use `set PYTHONPATH=backend & python -m uvicorn main:app --reload`
-
-### Start the Frontend Development Server
-
-Open a new terminal window:
-
-```bash
-cd frontend
-npm run dev
-```
-The application will be accessible at `http://localhost:5173`.
-
-### Start the Telegram Bot
-
-The Telegram bot runs as part of the FastAPI application lifecycle, so it starts automatically when you run the backend server.
-
-## Deployment to Firebase
-
-VishwaGuru can be deployed fullstack on Firebase using **Firebase Hosting** (for the frontend) and **Cloud Functions** (for the backend).
-
-### Prerequisites
-
-1.  Install Firebase CLI:
+3.  Start Frontend:
     ```bash
-    npm install -g firebase-tools
+    npm run dev
     ```
-2.  Login to Firebase:
-    ```bash
-    firebase login
-    ```
+    The app will be at `http://localhost:5173`.
 
-### Deployment Steps
+## Deployment Guide
 
-1.  **Initialize Project** (if not already done, or to select your project):
-    ```bash
-    firebase init
-    ```
-    - Select **Hosting** and **Functions**.
-    - Choose "Use an existing project" or create a new one.
-    - Select **Python** for Functions language.
-    - **Important**: The project is already configured with `firebase.json` and `.firebaserc`. You might skip initialization if you just want to set the project alias:
-      ```bash
-      firebase use --add
-      ```
+VishwaGuru is designed for a split deployment: **Render** for the backend and **Netlify** for the frontend.
 
-2.  **Build Frontend**:
-    ```bash
-    cd frontend
-    npm run build
-    cd ..
-    ```
+### Backend (Render)
 
-3.  **Deploy**:
-    ```bash
-    firebase deploy
-    ```
+1.  Create a new **Web Service** on Render connected to your repo.
+2.  Settings:
+    *   **Runtime**: Python 3
+    *   **Build Command**: `pip install -r backend/requirements.txt`
+    *   **Start Command**: `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+3.  Environment Variables:
+    *   `PYTHONPATH`: `backend`
+    *   `GEMINI_API_KEY`: Your key.
+    *   `DATABASE_URL`: Your PostgreSQL connection string (Render provides one if you add a Postgres database).
+    *   `FRONTEND_URL`: Your Netlify URL (e.g., `https://my-app.netlify.app`).
 
-    This command will:
-    - Build the functions source by copying `backend` and `data` into `functions/`.
-    - Deploy the backend as a Firebase Cloud Function (Gen 2).
-    - Deploy the `frontend/dist` folder to Firebase Hosting.
-    - Set up rewrites so API calls go to the function and other routes go to the React app.
+### Frontend (Netlify)
 
-### Environment Variables
-
-For Cloud Functions, you need to set environment variables using the Firebase CLI:
-
-```bash
-firebase functions:config:set \
-  app.telegram_bot_token="YOUR_TOKEN" \
-  app.gemini_api_key="YOUR_KEY" \
-  app.database_url="YOUR_POSTGRES_URL"
-```
-*Note: Firebase Gen 2 functions use `.env` files or Google Secret Manager. The `functions:config:set` is for Gen 1. For Gen 2, it's recommended to use `.env` inside `functions/` or Secret Manager.*
-
-**Recommended for Gen 2:**
-Create `functions/.env` before deploying (DO NOT COMMIT THIS FILE):
-```env
-TELEGRAM_BOT_TOKEN=...
-GEMINI_API_KEY=...
-DATABASE_URL=...
-```
-
-## Tech Stack
-
-*   **Frontend**: React, Vite, Tailwind CSS
-*   **Backend**: Python, FastAPI, SQLAlchemy, Pydantic
-*   **Database**: SQLite (Dev), PostgreSQL (Prod)
-*   **AI**: Google Gemini (google-generativeai)
-*   **Bot**: python-telegram-bot
-*   **Deployment**: Firebase (Hosting + Functions), Render/Netlify (Alternative)
-  
-
-## Development & Contribution Guide
-
-This section helps new contributors and developers understand how to work with the VishwaGuru codebase effectively.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a new branch from `main`
-3. Make focused changes related to a single issue
-4. Test changes locally
-5. Open a pull request with a clear description
-
-### API Usage Overview
-
-- The frontend communicates with the backend using REST APIs.
-- Issue submissions are sent from the frontend to the FastAPI backend.
-- The backend handles validation, database storage, and AI integration.
-- Responses are returned as JSON and rendered in the UI.
-- The same backend APIs are used by the Telegram bot.
-
-This unified API design ensures consistent behavior across all user interfaces.
-
-### Environment Configuration Tips
-
-- Use `.env` files for local development.
-- Never commit API keys or secrets.
-- Ensure `DATABASE_URL` is set correctly when switching between SQLite and PostgreSQL.
-
-### Common Development Commands
-
-
-
-**Backend**
-```bash
-PYTHONPATH=backend python -m uvicorn main:app --reload
-
-```
-
-**Frontend**
-```bash
-cd frontend
-npm install
-npm run dev
-
-```
+1.  Create a new site from Git on Netlify.
+2.  Settings:
+    *   **Base directory**: `frontend`
+    *   **Build command**: `npm run build`
+    *   **Publish directory**: `frontend/dist`
+3.  Environment Variables:
+    *   `VITE_API_URL`: Your Render Backend URL (e.g., `https://my-app.onrender.com`).
 
 ## License
 

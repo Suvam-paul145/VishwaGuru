@@ -1,6 +1,7 @@
 import logging
 import threading
 from typing import Optional, Any
+from fastapi import HTTPException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -12,9 +13,6 @@ _model: Optional[Any] = None
 _model_lock: threading.Lock = threading.Lock()
 _model_loading_error: Optional[Exception] = None
 _model_initialized: bool = False
-
-_model = None
-_model_lock = threading.Lock()
 
 def load_model():
     """
@@ -118,11 +116,6 @@ def reset_model():
         _model_initialized = False
         _model_loading_error = None
         logger.info("Model singleton state has been reset.")
-    global _model
-    if _model is None:
-        with _model_lock:
-            if _model is None:  # Double check inside lock
-                _model = load_model()
     return _model
 
 def detect_potholes(image_source):
@@ -135,30 +128,46 @@ def detect_potholes(image_source):
     Returns:
         List of detections. Each detection is a dict with 'box', 'confidence', 'label'.
     """
-    model = get_model()
+    try:
+        model = get_model()
 
-    # perform inference
-    # stream=False ensures we get all results in memory
-    results = model.predict(image_source, stream=False)
+        # perform inference
+        # stream=False ensures we get all results in memory
+        results = model.predict(image_source, stream=False)
 
-    # observe results
-    result = results[0] # Single image
+        # observe results
+        result = results[0] # Single image
 
-    detections = []
+        detections = []
 
-    if hasattr(result, 'boxes'):
-        for i, box in enumerate(result.boxes):
-            # box.xyxy is [x1, y1, x2, y2] tensor
-            # Convert to list
-            coords = box.xyxy[0].cpu().numpy().tolist()
-            conf = float(box.conf[0].cpu().numpy())
-            cls_id = int(box.cls[0].cpu().numpy())
-            label = result.names[cls_id]
+        if hasattr(result, 'boxes'):
+            for i, box in enumerate(result.boxes):
+                # box.xyxy is [x1, y1, x2, y2] tensor
+                # Convert to list
+                coords = box.xyxy[0].cpu().numpy().tolist()
+                conf = float(box.conf[0].cpu().numpy())
+                cls_id = int(box.cls[0].cpu().numpy())
+                label = result.names[cls_id]
 
-            detections.append({
-                "box": coords, # [x1, y1, x2, y2]
-                "confidence": conf,
-                "label": label
-            })
+                detections.append({
+                    "box": coords, # [x1, y1, x2, y2]
+                    "confidence": conf,
+                    "label": label
+                })
 
-    return detections
+        return detections
+    except Exception as e:
+        logger.error(f"Error in detect_potholes: {e}")
+        raise e
+
+def validate_image_for_processing(image):
+    """
+    Validates that an image can be processed by PIL/OpenCV.
+    """
+    if image is None:
+        raise HTTPException(status_code=400, detail="No image provided")
+
+    if image.width < 10 or image.height < 10:
+        raise HTTPException(status_code=400, detail="Image too small")
+
+    return True
