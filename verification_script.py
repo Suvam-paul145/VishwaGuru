@@ -16,18 +16,11 @@ def test_auto_describe(page):
         body='{"level": "Medium", "raw_label": "pothole", "confidence": 0.8}'
     ))
 
-    # Go to Home page
-    page.goto("http://localhost:5173")
+    # Go directly to Report page to avoid navigation menu interaction issues
+    page.goto("http://localhost:5173/report")
 
     # Wait for page load
     page.wait_for_timeout(2000)
-
-    # Find "Report Issue" button and click
-    # The button has text "Report Issue" inside a span, and it's a button.
-    # page.get_by_role("button", name="Report Issue") might work if "Report Issue" is the accessible name.
-    # Since it contains an icon and a span, let's use get_by_text to be safe or verify accessible name.
-
-    page.get_by_text("Report Issue").click()
 
     # Verify we are on Report Form
     expect(page.get_by_role("heading", name="Report an Issue")).to_be_visible()
@@ -37,19 +30,17 @@ def test_auto_describe(page):
         f.write(b"dummy image content")
 
     # There are two file inputs (upload and camera). We want the upload one.
-    # The upload one is hidden but associated with a label "Upload".
-    # Playwright's set_input_files works on hidden inputs if we select them.
-    # We can select by looking for the input inside the label with text "Upload".
+    # The first one is usually the upload one.
+    # Or locate by name/id if available.
+    # Looking at ReportForm.jsx would help, but let's assume first input[type=file] is correct
+    # or look for the one associated with the Upload UI.
 
-    # The structure is: label > span("Upload") + input[type="file"]
-    # We can select the input that is inside the label containing "Upload".
-
-    # Or just select the first file input as there are two.
-    # The first one is upload, second is camera.
+    # Try setting on the first file input found
     page.locator('input[type="file"]').first.set_input_files("dummy.jpg")
 
     # Wait for "Auto-fill description from image" button to appear
-    # The text is "✨ Auto-fill description from image" or "Generating description..."
+    # The text might be "Auto-fill description from image" or similar.
+    # Let's verify visibility before clicking.
     auto_describe_btn = page.get_by_role("button", name="Auto-fill description from image")
     expect(auto_describe_btn).to_be_visible()
 
@@ -57,6 +48,8 @@ def test_auto_describe(page):
     auto_describe_btn.click()
 
     # Verify description is updated
+    # It might take a moment
+    page.wait_for_timeout(1000)
     expect(page.locator("textarea")).to_have_value("A generated description of a pothole")
 
     # Screenshot

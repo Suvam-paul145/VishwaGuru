@@ -36,6 +36,15 @@ jest.mock('../misc', () => ({
   }
 }));
 
+jest.mock('../grievances', () => ({
+  grievancesApi: {
+    getAll: jest.fn(),
+    getById: jest.fn(),
+    getStats: jest.fn(),
+    escalate: jest.fn()
+  }
+}));
+
 describe('API Index Exports', () => {
   it('should export all client functions', () => {
     expect(api.apiClient).toBeDefined();
@@ -74,6 +83,14 @@ describe('API Index Exports', () => {
     expect(typeof api.miscApi.getStats).toBe('function');
   });
 
+  it('should export all grievances API functions', () => {
+    expect(api.grievancesApi).toBeDefined();
+    expect(typeof api.grievancesApi.getAll).toBe('function');
+    expect(typeof api.grievancesApi.getById).toBe('function');
+    expect(typeof api.grievancesApi.getStats).toBe('function');
+    expect(typeof api.grievancesApi.escalate).toBe('function');
+  });
+
   it('should not export any undefined values', () => {
     // Check that all exports are properly defined
     Object.keys(api).forEach(key => {
@@ -87,11 +104,12 @@ describe('API Index Exports', () => {
     // issues: issuesApi (1)
     // detectors: detectorsApi (1)
     // misc: miscApi (1)
-    // Total: 5 top-level exports
+    // grievances: grievancesApi (1)
+    // Total: 6 top-level exports
     const exportKeys = Object.keys(api);
-    expect(exportKeys.length).toBe(5);
+    expect(exportKeys.length).toBe(6);
 
-    const expectedKeys = ['apiClient', 'getApiUrl', 'issuesApi', 'detectorsApi', 'miscApi'];
+    const expectedKeys = ['apiClient', 'getApiUrl', 'issuesApi', 'detectorsApi', 'miscApi', 'grievancesApi'];
     expectedKeys.forEach(key => {
       expect(exportKeys).toContain(key);
     });
