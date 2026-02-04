@@ -3,12 +3,7 @@
 set -o errexit
 
 echo "Installing Python dependencies..."
-if [ -f "backend/requirements-render.txt" ]; then
-    echo "Using requirements-render.txt for lightweight deployment..."
-    pip install -r backend/requirements-render.txt
-else
-    pip install -r backend/requirements.txt
-fi
+pip install -r backend/requirements.txt
 
 echo "Building Frontend..."
 cd frontend
