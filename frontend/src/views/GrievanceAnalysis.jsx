@@ -53,7 +53,11 @@ const GrievanceAnalysis = ({ onBack }) => {
           Enter your grievance description below to automatically classify it using our Machine Learning model trained on Indian public grievances.
         </p>
 
+        <label htmlFor="grievance-input" className="block text-sm font-medium text-gray-700 mb-2">
+          Grievance Description
+        </label>
         <textarea
+          id="grievance-input"
           className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4 h-40 resize-none"
           placeholder="e.g., The street lights in Sector 4 are not working properly..."
           value={text}
