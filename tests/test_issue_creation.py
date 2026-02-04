@@ -32,11 +32,9 @@ def test_create_issue():
         # Patch validation to avoid PIL/magic issues with dummy image
         # Also patch action plan generation to avoid external API calls
         # Note: Patch where it is imported/used (backend.routers.issues and backend.tasks)
-        with patch("backend.routers.issues.process_uploaded_image", new_callable=AsyncMock) as mock_process, \
+        with patch("backend.routers.issues.validate_uploaded_file", new_callable=AsyncMock) as mock_validate, \
+                 patch("backend.routers.issues.process_uploaded_image", new_callable=AsyncMock) as mock_opt, \
              patch("backend.tasks.generate_action_plan", new_callable=AsyncMock) as mock_plan:
-
-            import io
-            mock_process.return_value = io.BytesIO(b"processed image bytes")
 
             mock_plan.return_value = {
                 "whatsapp": "Test WhatsApp",
