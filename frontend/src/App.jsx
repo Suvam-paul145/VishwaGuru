@@ -4,18 +4,25 @@ import ChatWidget from './components/ChatWidget';
 import { fakeRecentIssues, fakeResponsibilityMap } from './fakeData';
 import { issuesApi, miscApi } from './api';
 
-// Lazy Load Views
-const Landing = React.lazy(() => import('./views/Landing'));
-const Home = React.lazy(() => import('./views/Home'));
-const MapView = React.lazy(() => import('./views/MapView'));
-const ReportForm = React.lazy(() => import('./views/ReportForm'));
-const ActionView = React.lazy(() => import('./views/ActionView'));
-const MaharashtraRepView = React.lazy(() => import('./views/MaharashtraRepView'));
-const VerifyView = React.lazy(() => import('./views/VerifyView'));
-const StatsView = React.lazy(() => import('./views/StatsView'));
-const LeaderboardView = React.lazy(() => import('./views/LeaderboardView'));
-const GrievanceView = React.lazy(() => import('./views/GrievanceView'));
-const NotFound = React.lazy(() => import('./views/NotFound'));
+// Route Preloading Utility
+const preloadRoute = (importFn) => {
+  const Component = React.lazy(importFn);
+  Component.preload = importFn;
+  return Component;
+};
+
+// Lazy Load Views with Preloading Capability
+const Landing = preloadRoute(() => import('./views/Landing'));
+const Home = preloadRoute(() => import('./views/Home'));
+const MapView = preloadRoute(() => import('./views/MapView'));
+const ReportForm = preloadRoute(() => import('./views/ReportForm'));
+const ActionView = preloadRoute(() => import('./views/ActionView'));
+const MaharashtraRepView = preloadRoute(() => import('./views/MaharashtraRepView'));
+const VerifyView = preloadRoute(() => import('./views/VerifyView'));
+const StatsView = preloadRoute(() => import('./views/StatsView'));
+const LeaderboardView = preloadRoute(() => import('./views/LeaderboardView'));
+const GrievanceView = preloadRoute(() => import('./views/GrievanceView'));
+const NotFound = preloadRoute(() => import('./views/NotFound'));
 
 // Lazy Load Detectors
 const DETECTORS = {
@@ -401,6 +408,22 @@ function AppContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  // Preload critical routes on idle
+  useEffect(() => {
+    const preloadCriticalRoutes = () => {
+      if (Home.preload) Home.preload();
+      if (ReportForm.preload) ReportForm.preload();
+      if (MapView.preload) MapView.preload();
+    };
+
+    // Use requestIdleCallback if available, otherwise setTimeout
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(preloadCriticalRoutes);
+    } else {
+      setTimeout(preloadCriticalRoutes, 2000);
+    }
+  }, []);
 
   // Clear messages after timeout
   useEffect(() => {
