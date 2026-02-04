@@ -1,6 +1,7 @@
 import joblib
 import os
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,10 @@ class GrievanceClassifier:
                 return "Unknown (Model Unavailable)"
 
         try:
+            start_time = time.time()
             prediction = self.model.predict([text])[0]
+            elapsed = (time.time() - start_time) * 1000
+            logger.info(f"Prediction took {elapsed:.2f}ms for text: '{text[:20]}...'")
             return prediction
         except Exception as e:
             logger.error(f"Prediction error: {e}")

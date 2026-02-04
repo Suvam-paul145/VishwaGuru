@@ -844,6 +844,9 @@ async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, m
 
 @app.post("/api/classify-grievance")
 def classify_grievance_endpoint(request: GrievanceRequest):
+    start_time = time.time()
     classifier = get_grievance_classifier()
     category = classifier.predict(request.text)
+    elapsed = (time.time() - start_time) * 1000
+    logger.info(f"Classify grievance endpoint took {elapsed:.2f}ms")
     return {"category": category}
