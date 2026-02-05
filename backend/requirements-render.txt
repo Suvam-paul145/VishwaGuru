@@ -16,3 +16,4 @@ firebase-admin
 a2wsgi
 scikit-learn
 numpy
+pydantic>=2.0.0

@@ -24,3 +24,4 @@ a2wsgi
 scikit-learn
 numpy
 pytest
+pydantic>=2.0.0
