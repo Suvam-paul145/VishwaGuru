@@ -54,11 +54,13 @@ async def lifespan(app: FastAPI):
     try:
         load_maharashtra_pincode_data()
         load_maharashtra_mla_data()
+        logger.info("Maharashtra data pre-loaded.")
     except Exception as e:
         logger.error(f"Error pre-loading data: {e}")
 
     try:
         start_bot_thread()
+        logger.info("Bot thread started.")
     except Exception as e:
         logger.error(f"Error starting bot: {e}")
 
@@ -67,9 +69,11 @@ async def lifespan(app: FastAPI):
     # Shutdown
     if hasattr(app.state, 'http_client') and app.state.http_client:
         await app.state.http_client.aclose()
+        logger.info("HTTP Client closed.")
 
     try:
         stop_bot_thread()
+        logger.info("Bot thread stopped.")
     except Exception as e:
         logger.error(f"Error stopping bot: {e}")
 
@@ -109,6 +113,7 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Include Routers
+# These routers contain all the endpoints previously duplicated in main.py
 app.include_router(utility.router)
 app.include_router(issues.router)
 app.include_router(detection.router)

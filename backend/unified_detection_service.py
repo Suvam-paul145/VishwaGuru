@@ -53,7 +53,7 @@ class UnifiedDetectionService:
             return self._local_available
         
         try:
-            from local_ml_service import get_general_model
+            from backend.local_ml_service import get_general_model
             model = get_general_model()
             
             # Check if model is loaded
@@ -123,12 +123,13 @@ class UnifiedDetectionService:
         backend = await self._get_detection_backend()
         
         if backend == "local":
-            from local_ml_service import detect_vandalism_local
+            from backend.local_ml_service import detect_vandalism_local
             return await detect_vandalism_local(image)
         
         elif backend == "huggingface":
-            from hf_service import detect_vandalism_clip
-            return await detect_vandalism_clip(image)
+            # Fallback to graffiti detection or generic clip
+            from backend.hf_api_service import detect_graffiti_art_clip
+            return await detect_graffiti_art_clip(image)
         
         else:
             logger.error("No detection backend available")
@@ -151,12 +152,14 @@ class UnifiedDetectionService:
         backend = await self._get_detection_backend()
         
         if backend == "local":
-            from local_ml_service import detect_infrastructure_local
+            from backend.local_ml_service import detect_infrastructure_local
             return await detect_infrastructure_local(image)
         
         elif backend == "huggingface":
-            from hf_service import detect_infrastructure_clip
-            return await detect_infrastructure_clip(image)
+            # Use smart scan as fallback
+            from backend.hf_api_service import detect_smart_scan_clip
+            result = await detect_smart_scan_clip(image)
+            return [{"label": result.get("category"), "confidence": result.get("confidence"), "box": []}]
         
         else:
             logger.error("No detection backend available")
@@ -179,12 +182,13 @@ class UnifiedDetectionService:
         backend = await self._get_detection_backend()
         
         if backend == "local":
-            from local_ml_service import detect_flooding_local
+            from backend.local_ml_service import detect_flooding_local
             return await detect_flooding_local(image)
         
         elif backend == "huggingface":
-            from hf_service import detect_flooding_clip
-            return await detect_flooding_clip(image)
+            # Use water leak detection as proxy
+            from backend.hf_api_service import detect_water_leak_clip
+            return await detect_water_leak_clip(image)
         
         else:
             logger.error("No detection backend available")
@@ -205,9 +209,6 @@ class UnifiedDetectionService:
 
         if backend == "local":
             from backend.garbage_detection import detect_garbage
-            # Local model expects image source, but PIL image works if model supports it
-            # The existing detect_garbage uses model.predict(image_source)
-            # Ultralytics YOLO supports PIL Image directly
             from fastapi.concurrency import run_in_threadpool
             return await run_in_threadpool(detect_garbage, image)
 
@@ -272,7 +273,7 @@ class UnifiedDetectionService:
         # Add local model details if available
         if local_available:
             try:
-                from local_ml_service import get_detection_status
+                from backend.local_ml_service import get_detection_status
                 status["local_backend"]["details"] = await get_detection_status()
             except Exception:
                 pass
