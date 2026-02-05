@@ -3,8 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from
 import ChatWidget from './components/ChatWidget';
 import { fakeRecentIssues, fakeResponsibilityMap } from './fakeData';
 import { issuesApi, miscApi } from './api';
-import FloatingButtonsManager from './components/FloatingButtonsManager';
-import AppHeader from './components/AppHeader';
 
 // Lazy Load Views
 const Landing = React.lazy(() => import('./views/Landing'));
@@ -164,11 +162,7 @@ function AppContent() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-300/10 rounded-full blur-3xl animate-pulse-slow animation-delay-1000"></div>
       </div>
 
-      <FloatingButtonsManager setView={navigateToView} />
-
       <div className="relative z-10">
-        <AppHeader />
-
         <Suspense fallback={
           <div className="flex justify-center my-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>

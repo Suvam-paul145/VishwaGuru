@@ -147,9 +147,8 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote, loa
               <span className="text-4xl font-extrabold block">{totalImpact}</span>
               <span className="text-xs text-indigo-200 uppercase tracking-wider font-semibold">{t('home.issuesSolved')}</span>
             </div>
-        </div>
-        <ChevronRight size={24} />
-    </button>
+            <ChevronRight size={24} />
+          </button>
 
     {/* Quick Actions Grid */}
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
