@@ -82,7 +82,7 @@ class Grievance(Base):
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), index=True)
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
     resolved_at = Column(DateTime, nullable=True)
-    issue_id = Column(Integer, nullable=True, index=True)
+    issue_id = Column(Integer, ForeignKey("issues.id"), nullable=True, index=True)
 
     # Relationships
     jurisdiction = relationship("Jurisdiction", back_populates="grievances")
@@ -135,6 +135,9 @@ class Issue(Base):
     longitude = Column(Float, nullable=True, index=True)
     location = Column(String, nullable=True)
     action_plan = Column(JSONEncodedDict, nullable=True)
+
+    # Relationships
+    grievances = relationship("Grievance", backref="issue")
 
 class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
