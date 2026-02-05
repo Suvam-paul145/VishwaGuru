@@ -13,7 +13,6 @@ from typing import Optional
 from backend.cache import user_upload_cache
 from backend.models import Issue
 from backend.schemas import DetectionResponse
-from backend.pothole_detection import validate_image_for_processing
 
 logger = logging.getLogger(__name__)
 
@@ -223,8 +222,8 @@ async def process_and_detect(image: UploadFile, detection_func) -> DetectionResp
         if pil_image is None:
             pil_image = await run_in_threadpool(Image.open, image.file)
 
-        # Validate image for processing
-        await run_in_threadpool(validate_image_for_processing, pil_image)
+        # Basic PIL check is done in validate_uploaded_file
+        # Additional heavy model-specific validation removed to prevent circular imports
     except HTTPException:
         raise  # Re-raise HTTP exceptions from validation
     except Exception as e:
