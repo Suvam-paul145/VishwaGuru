@@ -31,6 +31,8 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
   const [analyzingDepth, setAnalyzingDepth] = useState(false);
   const [smartCategory, setSmartCategory] = useState(null);
   const [analyzingSmartScan, setAnalyzingSmartScan] = useState(false);
+  const [suggestedCategory, setSuggestedCategory] = useState(null);
+  const [analyzingText, setAnalyzingText] = useState(false);
   const [submitStatus, setSubmitStatus] = useState({ state: 'idle', message: '' });
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [uploading, setUploading] = useState(false);
@@ -71,6 +73,26 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
           console.error("Urgency analysis failed", e);
       } finally {
           setAnalyzingUrgency(false);
+      }
+  };
+
+  const analyzeTextCategory = async () => {
+      if (!formData.description || formData.description.length < 5) return;
+      setAnalyzingText(true);
+      setSuggestedCategory(null);
+      try {
+          const data = await detectorsApi.textCategory(formData.description);
+          if (data && data.category && data.category !== 'unknown' && data.confidence > 0.4) {
+               setSuggestedCategory({
+                   category: data.category,
+                   confidence: data.confidence,
+                   label: data.original_label || data.category
+               });
+          }
+      } catch (e) {
+          console.error("Text category analysis failed", e);
+      } finally {
+          setAnalyzingText(false);
       }
   };
 
@@ -433,11 +455,28 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
                     <div className="flex items-center gap-2">
                         <span className="text-lg">✨</span>
                         <div>
-                            <p className="text-xs text-purple-800 font-bold uppercase tracking-wide">AI Suggestion</p>
+                            <p className="text-xs text-purple-800 font-bold uppercase tracking-wide">Image Analysis</p>
                             <p className="text-sm font-medium text-purple-900 capitalize">{smartCategory.original}</p>
                         </div>
                     </div>
                     <div className="bg-white text-purple-600 px-3 py-1 rounded text-xs font-bold shadow-sm group-hover:shadow transition">
+                        Apply
+                    </div>
+                </div>
+            )}
+            {suggestedCategory && (
+                <div
+                    onClick={() => setFormData({...formData, category: suggestedCategory.category})}
+                    className="mt-2 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100 p-2 rounded-lg cursor-pointer hover:bg-blue-100 transition flex items-center justify-between group"
+                >
+                    <div className="flex items-center gap-2">
+                        <span className="text-lg">💡</span>
+                        <div>
+                            <p className="text-xs text-blue-800 font-bold uppercase tracking-wide">Text Analysis</p>
+                            <p className="text-sm font-medium text-blue-900 capitalize">{suggestedCategory.label}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white text-blue-600 px-3 py-1 rounded text-xs font-bold shadow-sm group-hover:shadow transition">
                         Apply
                     </div>
                 </div>
@@ -466,7 +505,7 @@ const ReportForm = ({ setView, setLoading, setError, setActionPlan, loading }) =
                 rows="3"
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                onBlur={analyzeUrgency}
+                onBlur={() => { analyzeUrgency(); analyzeTextCategory(); }}
                 placeholder="Describe the issue..."
               />
               <div className="absolute top-2 right-2">

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Request, HTTPException
+from fastapi import APIRouter, UploadFile, File, Request, HTTPException, Body
 from fastapi.concurrency import run_in_threadpool
 from PIL import Image
 from async_lru import alru_cache
@@ -35,7 +35,8 @@ from backend.hf_api_service import (
     detect_civic_eye_clip,
     detect_graffiti_art_clip,
     detect_traffic_sign_clip,
-    detect_abandoned_vehicle_clip
+    detect_abandoned_vehicle_clip,
+    detect_category_text
 )
 from backend.dependencies import get_http_client
 import backend.dependencies
@@ -435,4 +436,14 @@ async def detect_abandoned_vehicle_endpoint(request: Request, image: UploadFile 
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Abandoned vehicle detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/api/detect-category-text")
+async def detect_category_text_endpoint(request: Request, text: str = Body(..., embed=True)):
+    try:
+        client = get_http_client(request)
+        result = await detect_category_text(text, client=client)
+        return result
+    except Exception as e:
+        logger.error(f"Text category detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")

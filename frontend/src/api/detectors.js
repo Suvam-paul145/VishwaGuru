@@ -56,4 +56,7 @@ export const detectorsApi = {
   transcribe: async (formData) => {
       return await apiClient.postForm('/api/transcribe-audio', formData);
   },
+  textCategory: async (text) => {
+      return await apiClient.post('/api/detect-category-text', { text });
+  },
 };

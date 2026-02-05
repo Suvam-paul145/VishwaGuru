@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from
 import ChatWidget from './components/ChatWidget';
 import { fakeRecentIssues, fakeResponsibilityMap } from './fakeData';
 import { issuesApi, miscApi } from './api';
+import FloatingButtonsManager from './components/FloatingButtonsManager';
+import AppHeader from './components/AppHeader';
 
 // Lazy Load Views
 const Landing = React.lazy(() => import('./views/Landing'));
@@ -12,6 +14,7 @@ const ReportForm = React.lazy(() => import('./views/ReportForm'));
 const ActionView = React.lazy(() => import('./views/ActionView'));
 const MaharashtraRepView = React.lazy(() => import('./views/MaharashtraRepView'));
 const VerifyView = React.lazy(() => import('./views/VerifyView'));
+const TrackView = React.lazy(() => import('./views/TrackView'));
 const StatsView = React.lazy(() => import('./views/StatsView'));
 const LeaderboardView = React.lazy(() => import('./views/LeaderboardView'));
 const GrievanceView = React.lazy(() => import('./views/GrievanceView'));
@@ -33,6 +36,8 @@ const PestDetector = React.lazy(() => import('./PestDetector'));
 const SmartScanner = React.lazy(() => import('./SmartScanner'));
 const GrievanceAnalysis = React.lazy(() => import('./views/GrievanceAnalysis'));
 
+const VALID_VIEWS = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'leaderboard', 'stats', 'grievance'];
+
 // Create a wrapper component to handle state management
 function AppContent() {
   const navigate = useNavigate();
@@ -47,21 +52,15 @@ function AppContent() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Safe navigation helper
-  const navigateToView = (view) => {
-    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis'];
-    if (validViews.includes(view)) {
-      navigate(view === 'home' ? '/' : `/${view}`);
-    }
-  }, [error, success]);
-
   // Safe navigation helper with validation
   const navigateToView = useCallback((view) => {
-    if (VALID_VIEWS.includes(view.split('/')[0])) {
-      navigate(`/${view}`);
+    // Handle paths vs view names
+    const viewName = view.startsWith('/') ? view.substring(1) : view;
+    // Simple check for valid views or just navigate
+    if (view === 'home' || view === '/') {
+        navigate('/');
     } else {
-      console.warn(`Attempted to navigate to invalid view: ${view}`);
-      navigate('/home');
+        navigate(`/${viewName}`);
     }
   }, [navigate]);
 
@@ -148,7 +147,7 @@ function AppContent() {
     return (
       <Suspense fallback={
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-          <LoadingSpinner size="xl" variant="primary" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       }>
         <Landing />
@@ -184,6 +183,9 @@ function AppContent() {
                   fetchResponsibilityMap={fetchResponsibilityMap}
                   recentIssues={recentIssues}
                   handleUpvote={handleUpvote}
+                  loadMoreIssues={loadMoreIssues}
+                  hasMore={hasMore}
+                  loadingMore={loadingMore}
                 />
               }
             />
@@ -230,6 +232,30 @@ function AppContent() {
                   loading={loading}
                 />
               }
+            />
+            <Route
+              path="/verify/:id"
+              element={<VerifyView />}
+            />
+            <Route
+              path="/track"
+              element={<TrackView />}
+            />
+            <Route
+              path="/track/:id"
+              element={<TrackView />}
+            />
+            <Route
+              path="/leaderboard"
+              element={<LeaderboardView />}
+            />
+            <Route
+              path="/stats"
+              element={<StatsView />}
+            />
+             <Route
+              path="/grievance"
+              element={<GrievanceView />}
             />
             <Route path="/pothole" element={<PotholeDetector onBack={() => navigate('/')} />} />
             <Route path="/garbage" element={<GarbageDetector onBack={() => navigate('/')} />} />

@@ -15,6 +15,9 @@ headers = {"Authorization": f"Bearer {token}"} if token else {}
 # Zero-Shot Image Classification Model
 CLIP_API_URL = "https://router.huggingface.co/models/openai/clip-vit-base-patch32"
 
+# Zero-Shot Text Classification Model
+ZERO_SHOT_API_URL = "https://router.huggingface.co/models/facebook/bart-large-mnli"
+
 # Image Captioning Model
 CAPTION_API_URL = "https://router.huggingface.co/models/Salesforce/blip-image-captioning-large"
 
@@ -456,3 +459,46 @@ async def detect_abandoned_vehicle_clip(image: Union[Image.Image, bytes], client
     labels = ["abandoned car", "rusted vehicle", "car with flat tires", "wrecked car", "normal parked car"]
     targets = ["abandoned car", "rusted vehicle", "car with flat tires", "wrecked car"]
     return await _detect_clip_generic(image, labels, targets, client)
+
+async def detect_category_text(text: str, client: httpx.AsyncClient = None):
+    """
+    Classifies text into categories using Zero-Shot Classification.
+    """
+    if not text: return {"category": "unknown", "confidence": 0}
+
+    labels = ["road issue", "water supply", "garbage", "streetlight", "infrastructure", "drainage", "safety"]
+
+    payload = {
+        "inputs": text,
+        "parameters": {"candidate_labels": labels}
+    }
+
+    if client:
+        result = await _make_request(client, ZERO_SHOT_API_URL, payload)
+    else:
+        async with httpx.AsyncClient() as new_client:
+            result = await _make_request(new_client, ZERO_SHOT_API_URL, payload)
+
+    # Result format: {'labels': ['road issue', ...], 'scores': [0.9, ...]}
+    if isinstance(result, dict) and 'labels' in result and 'scores' in result:
+        top_label = result['labels'][0]
+        top_score = result['scores'][0]
+
+        # Map to internal categories
+        category_map = {
+            "road issue": "road",
+            "water supply": "water",
+            "garbage": "garbage",
+            "streetlight": "streetlight",
+            "infrastructure": "college_infra",
+            "drainage": "water",
+            "safety": "women_safety"
+        }
+
+        return {
+            "category": category_map.get(top_label, "road"),
+            "confidence": top_score,
+            "original_label": top_label
+        }
+
+    return {"category": "unknown", "confidence": 0}

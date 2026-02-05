@@ -27,10 +27,13 @@ class ActionPlan(BaseModel):
 class ChatRequest(BaseModel):
     query: str
 
+class ChatResponse(BaseModel):
+    response: str
+
 class GrievanceRequest(BaseModel):
     text: str
 
-class IssueResponse(BaseModel):
+class IssueSummaryResponse(BaseModel):
     id: int
     category: str
     description: str
@@ -41,7 +44,7 @@ class IssueResponse(BaseModel):
     location: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    action_plan: Optional[Any] = None
+    # action_plan is intentionally excluded or optional here for summary views
 
     model_config = ConfigDict(from_attributes=True)
 

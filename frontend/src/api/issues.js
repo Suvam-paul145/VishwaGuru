@@ -20,5 +20,14 @@ export const issuesApi = {
 
   vote: async (id) => {
     return await apiClient.post(`/api/issues/${id}/vote`, {}); // The backend endpoint might not require a body for upvote
+  },
+
+  getIssue: async (id) => {
+    try {
+      return await apiClient.get(`/api/issues/${id}`);
+    } catch (error) {
+      console.error("Failed to fetch issue", error);
+      throw error;
+    }
   }
 };

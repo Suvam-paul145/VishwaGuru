@@ -352,7 +352,7 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote, loa
         </div>
 
         {/* Additional Tools */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <button
             onClick={fetchResponsibilityMap}
             className="flex flex-row items-center justify-center bg-emerald-50 border border-emerald-100 p-4 rounded-xl hover:bg-emerald-100 transition shadow-sm h-16 gap-3 text-emerald-800 font-semibold"
@@ -366,6 +366,13 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote, loa
           >
             <Trophy size={20} className="text-yellow-600" />
             Top Reporters
+          </button>
+          <button
+            onClick={() => setView('track')}
+            className="flex flex-row items-center justify-center bg-blue-50 border border-blue-100 p-4 rounded-xl hover:bg-blue-100 transition shadow-sm h-16 gap-3 text-blue-800 font-semibold"
+          >
+            <Search size={20} className="text-blue-600" />
+            Track Issue
           </button>
           <button
             onClick={() => setShowCameraCheck(true)}

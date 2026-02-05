@@ -15,7 +15,7 @@ from backend.schemas import (
     IssueCreateWithDeduplicationResponse, IssueCategory, NearbyIssueResponse,
     DeduplicationCheckResponse, IssueSummaryResponse, VoteResponse,
     IssueStatusUpdateRequest, IssueStatusUpdateResponse, PushSubscriptionRequest,
-    PushSubscriptionResponse
+    PushSubscriptionResponse, IssueResponse
 )
 from backend.utils import (
     check_upload_limits, validate_uploaded_file, save_file_blocking, save_issue_db,
@@ -237,6 +237,55 @@ def upvote_issue(issue_id: int, db: Session = Depends(get_db)):
         upvotes=issue.upvotes,
         message="Issue upvoted successfully"
     )
+
+@router.get("/api/issues/recent", response_model=List[IssueResponse])
+def get_recent_issues(
+    limit: int = Query(10, ge=1, le=50, description="Number of issues to return"),
+    offset: int = Query(0, ge=0, description="Number of issues to skip"),
+    db: Session = Depends(get_db)
+):
+    cache_key = f"recent_issues_{limit}_{offset}"
+    cached_data = recent_issues_cache.get(cache_key)
+    if cached_data:
+        return JSONResponse(content=cached_data)
+
+    # Fetch issues with pagination
+    issues = db.query(Issue).options(defer(Issue.action_plan)).order_by(Issue.created_at.desc()).offset(offset).limit(limit).all()
+
+    # Convert to Pydantic models for validation and serialization
+    data = []
+    for i in issues:
+        # Handle action_plan JSON string
+        action_plan_val = i.action_plan
+        if isinstance(action_plan_val, str) and action_plan_val:
+            try:
+                action_plan_val = json.loads(action_plan_val)
+            except json.JSONDecodeError:
+                pass # Keep as string if not valid JSON
+
+        data.append(IssueResponse(
+            id=i.id,
+            category=i.category,
+            description=i.description[:100] + "..." if len(i.description) > 100 else i.description,
+            created_at=i.created_at,
+            image_path=i.image_path,
+            status=i.status,
+            upvotes=i.upvotes if i.upvotes is not None else 0,
+            location=i.location,
+            latitude=i.latitude,
+            longitude=i.longitude,
+            action_plan=action_plan_val
+        ).model_dump(mode='json')) # Store as JSON-compatible dict in cache
+
+    recent_issues_cache.set(data, cache_key)
+    return data
+
+@router.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    return issue
 
 @router.get("/api/issues/nearby", response_model=List[NearbyIssueResponse])
 def get_nearby_issues(
