@@ -30,7 +30,7 @@ class ChatRequest(BaseModel):
 class GrievanceRequest(BaseModel):
     text: str
 
-class IssueResponse(BaseModel):
+class IssueSummaryResponse(BaseModel):
     id: int
     category: str
     description: str

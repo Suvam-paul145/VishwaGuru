@@ -1,7 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Form, UploadFile, File, Depends, BackgroundTasks, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from contextlib import asynccontextmanager
+from functools import lru_cache
+from typing import List
 import os
 import sys
 from pathlib import Path
@@ -12,12 +14,16 @@ import magic
 import httpx
 from backend.grievance_classifier import get_grievance_classifier
 from backend.schemas import GrievanceRequest, ChatRequest, IssueResponse
+from backend.grievance_service import GrievanceService
 from backend.database import Base, engine, get_db, SessionLocal
+from sqlalchemy.orm import Session
+import backend.dependencies
 from backend.models import Issue
 from backend.ai_factory import create_all_ai_services
 from backend.ai_interfaces import initialize_ai_services, get_ai_services
 from backend.ai_service import chat_with_civic_assistant, generate_action_plan
-from backend.bot import run_bot
+from backend.bot import run_bot, start_bot_thread, stop_bot_thread
+from backend.exceptions import EXCEPTION_HANDLERS
 from backend.init_db import migrate_db
 from backend.maharashtra_locator import load_maharashtra_pincode_data, load_maharashtra_mla_data, find_constituency_by_pincode, find_mla_by_constituency
 from backend.cache import recent_issues_cache
@@ -25,7 +31,7 @@ from backend.pothole_detection import detect_potholes
 from backend.garbage_detection import detect_garbage
 from backend.local_ml_service import detect_infrastructure_local, detect_flooding_local, detect_vandalism_local
 from backend.unified_detection_service import get_detection_status
-from backend.hf_service import (
+from backend.hf_api_service import (
     detect_illegal_parking_clip,
     detect_street_light_clip,
     detect_fire_clip,

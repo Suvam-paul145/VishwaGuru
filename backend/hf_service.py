@@ -56,6 +56,9 @@ async def _make_request(client, image_bytes, labels):
         except Exception as e:
             logger.error(f"HF API Request Exception: {e}")
             raise ExternalAPIException("Hugging Face API", str(e)) from e
+    except Exception as e:
+        logger.error(f"Error preparing HF API request: {e}")
+        raise ExternalAPIException("Hugging Face API", str(e)) from e
 
 def _prepare_image_bytes(image: Union[Image.Image, bytes]) -> bytes:
     """
