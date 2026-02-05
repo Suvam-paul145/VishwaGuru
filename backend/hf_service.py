@@ -34,15 +34,14 @@ async def query_hf_api(image_bytes, labels, client=None):
         return await _make_request(new_client, image_bytes, labels)
 
 async def _make_request(client, image_bytes, labels):
-    try:
-        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
-        payload = {
-            "inputs": image_base64,
-            "parameters": {
-                "candidate_labels": labels
-            }
+    payload = {
+        "inputs": image_base64,
+        "parameters": {
+            "candidate_labels": labels
         }
+    }
 
         try:
             response = await client.post(API_URL, headers=headers, json=payload, timeout=20.0)
