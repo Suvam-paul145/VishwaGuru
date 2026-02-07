@@ -33,3 +33,7 @@
 ## 2026-02-15 - React Component Definition & Navigation Props
 **Learning:** Lazy loading components in React (`React.lazy`) creates a dependency on the parent component's scope. If the parent references undefined layout components inline, the app may crash silently or throw confusing errors. Additionally, hardcoding navigation paths (like `navigate('/')`) inside reusable components limits their reuse in different contexts.
 **Action:** Explicitly define or import all layout components before lazy loading routes. Pass navigation handlers (like `onBack`) as props to child components to decouple them from specific routing logic.
+
+## 2026-02-28 - Netlify Build & Lockfile Conflicts
+**Learning:** Checking in `package-lock.json` generated on one OS/Node version can cause `npm install` failures or build errors on Netlify/CI environments due to platform-specific optional dependencies or integrity checksum mismatches. Additionally, aggressive linting rules (like `no-unused-vars` erroring on JSX imports) can block builds if CI treats warnings as errors.
+**Action:** If experiencing persistent CI build failures related to dependencies, try removing `package-lock.json` to force a clean install. Ensure linting rules are set to `warn` for non-critical stylistic checks in CI environments.
