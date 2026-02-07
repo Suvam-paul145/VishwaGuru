@@ -86,6 +86,7 @@ def _validate_uploaded_file_sync(file: UploadFile) -> Optional[Image.Image]:
         # Additional content validation: Try to open with PIL to ensure it's a valid image
         try:
             img = Image.open(file.file)
+            original_format = img.format  # Capture format before operations
             # Optimization: Skip img.verify() to avoid full file read.
             # Corrupt files will fail during resize or subsequent processing.
 
@@ -101,7 +102,11 @@ def _validate_uploaded_file_sync(file: UploadFile) -> Optional[Image.Image]:
 
                 # Save resized image back to file
                 output = io.BytesIO()
-                img.save(output, format=img.format or 'JPEG', quality=85)
+
+                # Determine save format (default to PNG for RGBA to avoid JPEG error)
+                save_format = original_format or ('PNG' if img.mode == 'RGBA' else 'JPEG')
+
+                img.save(output, format=save_format, quality=85)
                 output.seek(0)
 
                 # Replace file content
@@ -168,6 +173,7 @@ def process_uploaded_image_sync(file: UploadFile) -> io.BytesIO:
 
         try:
             img = Image.open(file.file)
+            original_format = img.format  # Capture format before operations
 
             # Resize if needed
             if img.width > 1024 or img.height > 1024:
@@ -177,14 +183,17 @@ def process_uploaded_image_sync(file: UploadFile) -> io.BytesIO:
                 img = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
 
             # Strip EXIF
-            img_no_exif = Image.new(img.mode, img.size)
-            img_no_exif.paste(img)
+            # Optimization: Clear info dictionary instead of creating new image and pasting (avoids full copy)
+            if hasattr(img, 'info'):
+                img.info.clear()
 
             # Save to BytesIO
             output = io.BytesIO()
-            # Preserve format or default to JPEG
-            fmt = img.format or 'JPEG'
-            img_no_exif.save(output, format=fmt, quality=85)
+
+            # Preserve format or default to JPEG, handling RGBA edge case
+            save_format = original_format or ('PNG' if img.mode == 'RGBA' else 'JPEG')
+
+            img.save(output, format=save_format, quality=85)
             output.seek(0)
 
             return output
