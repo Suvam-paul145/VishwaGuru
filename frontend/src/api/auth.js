@@ -1,4 +1,4 @@
-import client from './client';
+import { apiClient } from './client';
 
 export const authApi = {
   login: async (email, password) => {
@@ -6,17 +6,20 @@ export const authApi = {
     // Plan used JSON: {email, password} -> /auth/login
     // But router also supports /auth/token with FormData. 
     // Let's use JSON endpoint /auth/login for simplicity in React
-    const response = await client.post('/auth/login', { email, password });
-    return response.data;
+    // apiClient.post returns the JSON data directly, not a response object wrapper
+    const data = await apiClient.post('/api/auth/login', { email, password });
+    return data;
   },
 
   signup: async (userData) => {
-    const response = await client.post('/auth/signup', userData);
-    return response.data;
+    // apiClient.post returns the JSON data directly
+    const data = await apiClient.post('/api/auth/signup', userData);
+    return data;
   },
 
   me: async () => {
-    const response = await client.get('/auth/me');
-    return response.data;
+    // apiClient.get returns the JSON data directly
+    const data = await apiClient.get('/api/auth/me');
+    return data;
   }
 };
