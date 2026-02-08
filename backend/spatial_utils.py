@@ -35,6 +35,9 @@ def get_bounding_box(lat: float, lon: float, radius_meters: float) -> Tuple[floa
     return min_lat, max_lat, min_lon, max_lon
 
 
+EARTH_RADIUS_METERS = 6371000.0
+
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Calculate the great circle distance between two points
@@ -42,8 +45,6 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
     Returns distance in meters.
     """
-    R = 6371000.0  # Earth's radius in meters
-
     # Convert decimal degrees to radians
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -53,7 +54,34 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-    return R * c
+    return EARTH_RADIUS_METERS * c
+
+
+def equirectangular_distance_squared(
+    lat1_rad: float, lon1_rad: float,
+    lat2_rad: float, lon2_rad: float,
+    cos_lat: float
+) -> float:
+    """
+    Calculate squared equirectangular distance approximation.
+    Very accurate for small distances and faster than Haversine.
+    Handles longitude wrapping correctly.
+
+    Returns squared distance in meters^2.
+    """
+    dlon = lon2_rad - lon1_rad
+
+    # Handle longitude wrapping (International Date Line)
+    # E.g. 179 to -179 should be 2 degrees, not 358
+    if dlon > math.pi:
+        dlon -= 2 * math.pi
+    elif dlon < -math.pi:
+        dlon += 2 * math.pi
+
+    x = dlon * cos_lat * EARTH_RADIUS_METERS
+    y = (lat2_rad - lat1_rad) * EARTH_RADIUS_METERS
+
+    return x*x + y*y
 
 
 def find_nearby_issues(
@@ -64,6 +92,7 @@ def find_nearby_issues(
 ) -> List[Tuple[Issue, float]]:
     """
     Find issues within a specified radius of a target location.
+    Optimized to use equirectangular approximation for filtering.
 
     Args:
         issues: List of Issue objects to search through
@@ -76,16 +105,31 @@ def find_nearby_issues(
     """
     nearby_issues = []
 
+    # Pre-calculate constants for optimization
+    rad_factor = math.pi / 180.0
+    target_lat_rad = target_lat * rad_factor
+    target_lon_rad = target_lon * rad_factor
+    cos_lat = math.cos(target_lat_rad)
+    radius_sq = radius_meters * radius_meters
+
     for issue in issues:
         if issue.latitude is None or issue.longitude is None:
             continue
 
-        distance = haversine_distance(
-            target_lat, target_lon,
-            issue.latitude, issue.longitude
+        # Convert issue coordinates to radians
+        lat_rad = issue.latitude * rad_factor
+        lon_rad = issue.longitude * rad_factor
+
+        # Use fast equirectangular approximation
+        dist_sq = equirectangular_distance_squared(
+            target_lat_rad, target_lon_rad,
+            lat_rad, lon_rad,
+            cos_lat
         )
 
-        if distance <= radius_meters:
+        if dist_sq <= radius_sq:
+            # Calculate actual distance (sqrt of squared distance)
+            distance = math.sqrt(dist_sq)
             nearby_issues.append((issue, distance))
 
     # Sort by distance (closest first)
