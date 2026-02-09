@@ -56,6 +56,20 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
+def equirectangular_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate the distance between two points using the Equirectangular approximation.
+    This is much faster than Haversine and accurate enough for small distances (< 10km).
+
+    Returns distance in meters.
+    """
+    R = 6371000.0
+    # Convert difference to radians directly
+    x = math.radians(lon2 - lon1) * math.cos(math.radians((lat1 + lat2) / 2))
+    y = math.radians(lat2 - lat1)
+    return R * math.sqrt(x*x + y*y)
+
+
 def find_nearby_issues(
     issues: List[Issue],
     target_lat: float,
@@ -80,7 +94,8 @@ def find_nearby_issues(
         if issue.latitude is None or issue.longitude is None:
             continue
 
-        distance = haversine_distance(
+        # Use Equirectangular approximation for faster filtering
+        distance = equirectangular_distance(
             target_lat, target_lon,
             issue.latitude, issue.longitude
         )
