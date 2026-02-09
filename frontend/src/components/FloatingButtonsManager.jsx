@@ -4,9 +4,7 @@ import VoiceInput from './VoiceInput';
 
 const FloatingButtonsManager = ({ setView }) => {
   const handleVoiceCommand = (transcript) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Voice command:", transcript);
-    }
+    console.log("Voice command:", transcript);
     const lower = transcript.toLowerCase();
 
     // Simple command mapping
