@@ -9,19 +9,23 @@ import numpy as np
 from backend.models import Issue
 
 
+# Earth's mean radius in meters
+# Note: We use the mean radius (6371000m) rather than WGS84 equatorial radius (6378137m)
+# because it provides better accuracy across all latitudes, not just at the equator.
+# This is the standard choice for general geographic distance calculations.
+EARTH_RADIUS_METERS = 6371000.0
+
+
 def get_bounding_box(lat: float, lon: float, radius_meters: float) -> Tuple[float, float, float, float]:
     """
     Calculate the bounding box coordinates for a given radius.
     Returns (min_lat, max_lat, min_lon, max_lon).
     """
-    # Earth's radius in meters
-    R = 6378137.0
-
     # Coordinate offsets in radians
     # Prevent division by zero at poles
     effective_lat = max(min(lat, 89.9), -89.9)
-    dlat = radius_meters / R
-    dlon = radius_meters / (R * math.cos(math.pi * effective_lat / 180.0))
+    dlat = radius_meters / EARTH_RADIUS_METERS
+    dlon = radius_meters / (EARTH_RADIUS_METERS * math.cos(math.pi * effective_lat / 180.0))
 
     # Offset positions in decimal degrees
     lat_offset = dlat * 180.0 / math.pi
@@ -33,9 +37,6 @@ def get_bounding_box(lat: float, lon: float, radius_meters: float) -> Tuple[floa
     max_lon = lon + lon_offset
 
     return min_lat, max_lat, min_lon, max_lon
-
-
-EARTH_RADIUS_METERS = 6371000.0
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -92,7 +93,8 @@ def find_nearby_issues(
 ) -> List[Tuple[Issue, float]]:
     """
     Find issues within a specified radius of a target location.
-    Optimized to use equirectangular approximation for filtering.
+    Uses fast equirectangular approximation for pre-filtering candidates,
+    then computes accurate Haversine distance for final results.
 
     Args:
         issues: List of Issue objects to search through
@@ -101,7 +103,8 @@ def find_nearby_issues(
         radius_meters: Search radius in meters (default 50m)
 
     Returns:
-        List of tuples (issue, distance_meters) for issues within radius
+        List of tuples (issue, distance_meters) for issues within radius,
+        sorted by distance (closest first). Distance is great-circle (Haversine).
     """
     nearby_issues = []
 
@@ -120,7 +123,7 @@ def find_nearby_issues(
         lat_rad = issue.latitude * rad_factor
         lon_rad = issue.longitude * rad_factor
 
-        # Use fast equirectangular approximation
+        # Fast pre-filter using squared equirectangular distance
         dist_sq = equirectangular_distance_squared(
             target_lat_rad, target_lon_rad,
             lat_rad, lon_rad,
@@ -128,8 +131,8 @@ def find_nearby_issues(
         )
 
         if dist_sq <= radius_sq:
-            # Calculate actual distance (sqrt of squared distance)
-            distance = math.sqrt(dist_sq)
+            # Calculate accurate great-circle distance for candidates that passed filter
+            distance = haversine_distance(target_lat, target_lon, issue.latitude, issue.longitude)
             nearby_issues.append((issue, distance))
 
     # Sort by distance (closest first)
