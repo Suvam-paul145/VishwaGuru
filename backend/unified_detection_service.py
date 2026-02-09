@@ -127,7 +127,7 @@ class UnifiedDetectionService:
             return await detect_vandalism_local(image)
         
         elif backend == "huggingface":
-            from hf_service import detect_vandalism_clip
+            from backend.hf_api_service import detect_vandalism_clip
             return await detect_vandalism_clip(image)
         
         else:
@@ -155,7 +155,7 @@ class UnifiedDetectionService:
             return await detect_infrastructure_local(image)
         
         elif backend == "huggingface":
-            from hf_service import detect_infrastructure_clip
+            from backend.hf_api_service import detect_infrastructure_clip
             return await detect_infrastructure_clip(image)
         
         else:
@@ -183,7 +183,7 @@ class UnifiedDetectionService:
             return await detect_flooding_local(image)
         
         elif backend == "huggingface":
-            from hf_service import detect_flooding_clip
+            from backend.hf_api_service import detect_flooding_clip
             return await detect_flooding_clip(image)
         
         else:
@@ -212,17 +212,8 @@ class UnifiedDetectionService:
             return await run_in_threadpool(detect_garbage, image)
 
         elif backend == "huggingface":
-            from backend.hf_api_service import detect_waste_clip
-            result = await detect_waste_clip(image)
-
-            # Map classification to detection format
-            if result and result.get("waste_type") != "unknown":
-                return [{
-                    "label": result["waste_type"],
-                    "confidence": result.get("confidence", 0.0),
-                    "box": [] # No bounding box for classification
-                }]
-            return []
+            from backend.hf_api_service import detect_garbage_clip
+            return await detect_garbage_clip(image)
 
         else:
             logger.error("No detection backend available")
@@ -249,20 +240,9 @@ class UnifiedDetectionService:
              # Even in auto, if we don't have local fire model, we fallback or use HF if enabled
              if await self._check_hf_available():
                 from backend.hf_api_service import detect_fire_clip
-                # Clip returns dict, we need list of dicts
-                # detect_fire_clip returns {"fire_detected": bool, "confidence": float} or similar dict
-                # Wait, I need to check detect_fire_clip return type.
-                # In detection.py it returns {"detections": ...}
-                # Let's assume it returns a dict-like object or list.
-                # Actually, most clip functions return dict.
                 result = await detect_fire_clip(image)
                 if isinstance(result, list):
                     return result
-                if isinstance(result, dict) and "detections" in result:
-                    return result["detections"]
-                if isinstance(result, dict):
-                     # Wrap in list if it's a single detection dict
-                     return [result]
                 return []
 
         # If we reached here, no suitable backend found
@@ -286,6 +266,13 @@ class UnifiedDetectionService:
             Dictionary mapping detection type to list of results
         """
         import asyncio
+
+        # Optimization: Use single-pass CLIP call if backend is HF
+        backend = await self._get_detection_backend()
+
+        if backend == "huggingface":
+            from backend.hf_api_service import detect_all_clip
+            return await detect_all_clip(image)
 
         results = await asyncio.gather(
             self.detect_vandalism(image),
