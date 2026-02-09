@@ -10,8 +10,9 @@ from backend.models import Issue
 
 
 # Earth's mean radius in meters
-# Note: This is slightly different from WGS84 equatorial radius (6378137m)
-# but is standard for geographic distance calculations
+# Note: We use the mean radius (6371000m) rather than WGS84 equatorial radius (6378137m)
+# because it provides better accuracy across all latitudes, not just at the equator.
+# This is the standard choice for general geographic distance calculations.
 EARTH_RADIUS_METERS = 6371000.0
 
 
