@@ -241,35 +241,22 @@ class UnifiedDetectionService:
         # Fire detection currently relies on HF API
         # Future: Add local model support
 
-        # We check backend availability but primarily rely on HF for now
-        # unless a local model is implemented
+        # We check backend availability but primarily rely on HF for now.
+        # Treat fire as HF-only: use HF when explicitly selected, or when the
+        # backend is local but HF fallback is enabled and available.
         backend = await self._get_detection_backend()
 
-        if backend == "huggingface" or backend == "auto":
-             # Even in auto, if we don't have local fire model, we fallback or use HF if enabled
-             if await self._check_hf_available():
+        if backend == "huggingface" or (backend == "local" and ENABLE_HF_FALLBACK):
+            if await self._check_hf_available():
                 from backend.hf_api_service import detect_fire_clip
-                # Clip returns dict, we need list of dicts
-                # detect_fire_clip returns {"fire_detected": bool, "confidence": float} or similar dict
-                # Wait, I need to check detect_fire_clip return type.
-                # In detection.py it returns {"detections": ...}
-                # Let's assume it returns a dict-like object or list.
-                # Actually, most clip functions return dict.
-                result = await detect_fire_clip(image)
-                if isinstance(result, list):
-                    return result
-                if isinstance(result, dict) and "detections" in result:
-                    return result["detections"]
-                if isinstance(result, dict):
-                     # Wrap in list if it's a single detection dict
-                     return [result]
-                return []
+                # detect_fire_clip already returns List[Dict] of detections
+                return await detect_fire_clip(image)
 
-        # If we reached here, no suitable backend found
+        # If we reached here, no suitable backend found or HF is unavailable
         if backend == "local":
-             # Placeholder for local fire detection
-             logger.warning("Local fire detection not yet implemented")
-             return []
+            # Placeholder for local fire detection
+            logger.warning("Local fire detection not yet implemented or HF fallback unavailable")
+            return []
 
         logger.error("No detection backend available for fire detection")
         # Don't raise exception to avoid failing detect_all, just return empty
