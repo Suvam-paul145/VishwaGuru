@@ -1,4 +1,3 @@
-from __future__ import annotations
 from fastapi import UploadFile, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
@@ -150,10 +149,10 @@ async def validate_uploaded_file(file: UploadFile) -> Optional[Image.Image]:
     """
     return await run_in_threadpool(_validate_uploaded_file_sync, file)
 
-def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
+def process_uploaded_image_sync(file: UploadFile) -> io.BytesIO:
     """
     Synchronously validate, resize, and strip EXIF from uploaded image.
-    Returns a tuple of (PIL Image, image bytes).
+    Returns the processed image data as BytesIO.
     """
     # Check file size
     file.file.seek(0, 2)
@@ -183,7 +182,6 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
 
         try:
             img = Image.open(file.file)
-            original_format = img.format
 
             # Resize if needed
             if img.width > 1024 or img.height > 1024:
@@ -198,17 +196,12 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
 
             # Save to BytesIO
             output = io.BytesIO()
-            # Preserve format or default to JPEG (handling mode compatibility)
-            # JPEG doesn't support RGBA, so use PNG for RGBA if format not specified
-            if original_format:
-                fmt = original_format
-            else:
-                fmt = 'PNG' if img.mode == 'RGBA' else 'JPEG'
-
+            # Preserve format or default to JPEG
+            fmt = img.format or 'JPEG'
             img_no_exif.save(output, format=fmt, quality=85)
-            img_bytes = output.getvalue()
+            output.seek(0)
 
-            return img_no_exif, img_bytes
+            return output
 
         except Exception as pil_error:
             logger.error(f"PIL processing failed: {pil_error}")
@@ -223,16 +216,13 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
         logger.error(f"Error processing file: {e}")
         raise HTTPException(status_code=400, detail="Unable to process file.")
 
-async def process_uploaded_image(file: UploadFile) -> tuple[Image.Image, bytes]:
+async def process_uploaded_image(file: UploadFile) -> io.BytesIO:
     return await run_in_threadpool(process_uploaded_image_sync, file)
 
-def save_processed_image(image_bytes: bytes, path: str):
-    """
-    Save processed image bytes to disk.
-    Optimized: Direct write instead of stream copy.
-    """
-    with open(path, "wb") as f:
-        f.write(image_bytes)
+def save_processed_image(file_obj: io.BytesIO, path: str):
+    """Save processed BytesIO to disk."""
+    with open(path, "wb") as buffer:
+        shutil.copyfileobj(file_obj, buffer)
 
 async def process_and_detect(image: UploadFile, detection_func) -> DetectionResponse:
     """

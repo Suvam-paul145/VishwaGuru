@@ -15,12 +15,6 @@ export const AuthProvider = ({ children }) => {
         apiClient.removeToken();
     };
 
-    const logout = () => {
-        setToken(null);
-        setUser(null);
-        apiClient.removeToken();
-    };
-
     useEffect(() => {
         if (token) {
             // Set default header
