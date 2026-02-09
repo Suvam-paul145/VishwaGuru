@@ -195,33 +195,8 @@ async def create_issue(
             # Offload blocking DB operations to threadpool
             await run_in_threadpool(save_issue_db, db, new_issue)
         else:
-            # Duplicate found: Save as "duplicate" linked to parent
-            # This preserves the user report for administrative review
-            prev_issue = await run_in_threadpool(
-                lambda: db.query(Issue.integrity_hash).order_by(Issue.id.desc()).first()
-            )
-            prev_hash = prev_issue[0] if prev_issue and prev_issue[0] else ""
-
-            hash_content = f"{description}|{category}|{prev_hash}"
-            integrity_hash = hashlib.sha256(hash_content.encode()).hexdigest()
-
-            new_issue = Issue(
-                reference_id=str(uuid.uuid4()),
-                description=description,
-                category=category,
-                image_path=image_path,
-                source="web",
-                user_email=user_email,
-                latitude=latitude,
-                longitude=longitude,
-                location=location,
-                action_plan=None,
-                integrity_hash=integrity_hash,
-                status="duplicate",
-                parent_issue_id=linked_issue_id
-            )
-            await run_in_threadpool(save_issue_db, db, new_issue)
-
+            # Don't create new issue, just return deduplication info
+            new_issue = None
     except Exception as e:
         # Clean up uploaded file if DB save failed
         if image_path and os.path.exists(image_path):
@@ -233,8 +208,8 @@ async def create_issue(
         logger.error(f"Database error while creating issue: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to save issue to database")
 
-    # Add background task for AI generation only if new issue was created (and not a duplicate)
-    if new_issue and new_issue.status != "duplicate":
+    # Add background task for AI generation only if new issue was created
+    if new_issue:
         background_tasks.add_task(process_action_plan_background, new_issue.id, description, category, language, image_path)
 
         # Create grievance for escalation management
@@ -255,7 +230,7 @@ async def create_issue(
         )
 
     # Return response with deduplication information
-    if new_issue and new_issue.status != "duplicate":
+    if new_issue:
         return IssueCreateWithDeduplicationResponse(
             id=new_issue.id,
             message="Issue reported successfully. Action plan will be generated shortly.",
@@ -264,11 +239,8 @@ async def create_issue(
             linked_issue_id=linked_issue_id
         )
     else:
-        # It's a duplicate or (theoretically) None, but we handle None as error usually
-        # If duplicate, we return the linked ID mostly, but maybe we want to return the duplicate ID too?
-        # The schema might expect just linked_issue_id
         return IssueCreateWithDeduplicationResponse(
-            id=new_issue.id if new_issue else None,
+            id=None,
             message="Similar issue found nearby. Your report has been linked to the existing issue to increase its priority.",
             action_plan=None,
             deduplication_info=deduplication_info,
@@ -698,7 +670,7 @@ def get_recent_issues(
         Issue.location,
         Issue.latitude,
         Issue.longitude
-    ).filter(Issue.status != "duplicate").order_by(Issue.created_at.desc()).offset(offset).limit(limit).all()
+    ).order_by(Issue.created_at.desc()).offset(offset).limit(limit).all()
 
     # Convert to Pydantic models for validation and serialization
     data = []
