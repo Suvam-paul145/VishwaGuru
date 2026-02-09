@@ -132,6 +132,14 @@ def migrate_db():
                 # Index likely already exists
                 pass
 
+            # Add composite index for category and status (Optimized for Stats/Aggregation)
+            try:
+                conn.execute(text("CREATE INDEX ix_issues_category_status ON issues (category, status)"))
+                logger.info("Migrated database: Added composite index on category, status for issues.")
+            except Exception:
+                # Index likely already exists
+                pass
+
             # --- Grievance Migrations ---
             # Add latitude column to grievances
             try:
