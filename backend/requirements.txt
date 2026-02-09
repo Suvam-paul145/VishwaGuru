@@ -17,9 +17,6 @@ pywebpush
 torch
 transformers
 Pillow
-firebase-functions
-firebase-admin
-a2wsgi
 pytest
 python-jose[cryptography]
 passlib[bcrypt]
