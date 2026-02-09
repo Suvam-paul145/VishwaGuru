@@ -1,8 +1,10 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import ChatWidget from './components/ChatWidget';
 import { fakeRecentIssues, fakeResponsibilityMap } from './fakeData';
 import { issuesApi, miscApi } from './api';
+import AppHeader from './components/AppHeader';
+import FloatingButtonsManager from './components/FloatingButtonsManager';
+import LoadingSpinner from './components/LoadingSpinner';
 
 // Lazy Load Views
 const Landing = React.lazy(() => import('./views/Landing'));
@@ -252,6 +254,7 @@ function AppContent() {
                 />
               }
             />
+            <Route path="/verify/:id" element={<VerifyView />} />
             <Route path="/pothole" element={<PotholeDetector onBack={() => navigate('/')} />} />
             <Route path="/garbage" element={<GarbageDetector onBack={() => navigate('/')} />} />
             <Route
