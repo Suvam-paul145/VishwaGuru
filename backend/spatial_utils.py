@@ -3,8 +3,6 @@ Spatial utilities for geospatial operations and deduplication.
 """
 import math
 from typing import List, Tuple, Optional
-from sklearn.cluster import DBSCAN
-import numpy as np
 
 from backend.models import Issue
 
@@ -107,53 +105,6 @@ def find_nearby_issues(
     nearby_issues.sort(key=lambda x: x[1])
 
     return nearby_issues
-
-
-def cluster_issues_dbscan(issues: List[Issue], eps_meters: float = 30.0) -> List[List[Issue]]:
-    """
-    Cluster issues using DBSCAN algorithm based on spatial proximity.
-
-    Args:
-        issues: List of Issue objects with latitude/longitude
-        eps_meters: Maximum distance between two samples for one to be considered
-                   as in the neighborhood of the other (default 30m)
-
-    Returns:
-        List of clusters, where each cluster is a list of Issue objects
-    """
-    # Filter issues with valid coordinates
-    valid_issues = [
-        issue for issue in issues
-        if issue.latitude is not None and issue.longitude is not None
-    ]
-
-    if not valid_issues:
-        return []
-
-    # Convert to numpy array for DBSCAN
-    coordinates = np.array([
-        [issue.latitude, issue.longitude] for issue in valid_issues
-    ])
-
-    # Convert eps from meters to degrees (approximate)
-    # 1 degree latitude ≈ 111,000 meters
-    # 1 degree longitude ≈ 111,000 * cos(latitude) meters
-    eps_degrees = eps_meters / 111000  # Rough approximation
-
-    # Perform DBSCAN clustering
-    db = DBSCAN(eps=eps_degrees, min_samples=1, metric='haversine').fit(
-        np.radians(coordinates)
-    )
-
-    # Group issues by cluster
-    clusters = {}
-    for i, label in enumerate(db.labels_):
-        if label not in clusters:
-            clusters[label] = []
-        clusters[label].append(valid_issues[i])
-
-    # Return clusters as list of lists (exclude noise points labeled as -1)
-    return [cluster for label, cluster in clusters.items() if label != -1]
 
 
 def get_cluster_representative(cluster: List[Issue]) -> Issue:
