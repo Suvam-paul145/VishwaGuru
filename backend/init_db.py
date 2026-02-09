@@ -8,21 +8,17 @@ backend_dir = current_file.parent
 repo_root = backend_dir.parent
 sys.path.insert(0, str(repo_root))
 
+from sqlalchemy import text
+import logging
 from backend.database import engine, Base
 from backend.models import *
+
+logger = logging.getLogger(__name__)
 
 def init_db():
     print("Creating tables...")
     Base.metadata.create_all(bind=engine)
     print("Tables created.")
-
-if __name__ == "__main__":
-    init_db()
-from sqlalchemy import text
-from backend.database import engine
-import logging
-
-logger = logging.getLogger(__name__)
 
 def migrate_db():
     """
@@ -75,3 +71,7 @@ def migrate_db():
         logger.info("Database migration check completed.")
     except Exception as e:
         logger.error(f"Database migration error: {e}")
+
+if __name__ == "__main__":
+    init_db()
+    migrate_db()

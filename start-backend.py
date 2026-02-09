@@ -17,6 +17,11 @@ if str(repo_root) not in sys.path:
 def validate_environment():
     """Validate required environment variables"""
     required_vars = ["GEMINI_API_KEY", "TELEGRAM_BOT_TOKEN", "FRONTEND_URL"]
+
+    # In production, SECRET_KEY is also required for auth
+    if os.getenv("ENVIRONMENT", "production").lower() == "production":
+        required_vars.append("SECRET_KEY")
+
     missing_vars = []
 
     for var in required_vars:
