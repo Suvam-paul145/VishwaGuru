@@ -35,9 +35,7 @@ from backend.hf_api_service import (
     detect_civic_eye_clip,
     detect_graffiti_art_clip,
     detect_traffic_sign_clip,
-    detect_abandoned_vehicle_clip,
-    detect_public_facilities_clip,
-    detect_construction_safety_clip
+    detect_abandoned_vehicle_clip
 )
 from backend.dependencies import get_http_client
 import backend.dependencies
@@ -71,14 +69,6 @@ async def _cached_detect_civic_eye(image_bytes: bytes):
 @alru_cache(maxsize=100)
 async def _cached_detect_graffiti(image_bytes: bytes):
     return await detect_graffiti_art_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
-
-@alru_cache(maxsize=100)
-async def _cached_detect_public_facilities(image_bytes: bytes):
-    return await detect_public_facilities_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
-
-@alru_cache(maxsize=100)
-async def _cached_detect_construction_safety(image_bytes: bytes):
-    return await detect_construction_safety_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
 
 # Endpoints
 
@@ -445,28 +435,4 @@ async def detect_abandoned_vehicle_endpoint(request: Request, image: UploadFile 
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Abandoned vehicle detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.post("/api/detect-public-facilities")
-async def detect_public_facilities_endpoint(image: UploadFile = File(...)):
-    # Optimized Image Processing: Validation + Optimization
-    _, image_bytes = await process_uploaded_image(image)
-
-    try:
-        return await _cached_detect_public_facilities(image_bytes)
-    except Exception as e:
-        logger.error(f"Public facilities detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.post("/api/detect-construction-safety")
-async def detect_construction_safety_endpoint(image: UploadFile = File(...)):
-    # Optimized Image Processing: Validation + Optimization
-    _, image_bytes = await process_uploaded_image(image)
-
-    try:
-        return await _cached_detect_construction_safety(image_bytes)
-    except Exception as e:
-        logger.error(f"Construction safety detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
