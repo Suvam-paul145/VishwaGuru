@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Request, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from PIL import Image
 from async_lru import alru_cache
@@ -35,8 +35,7 @@ from backend.hf_api_service import (
     detect_civic_eye_clip,
     detect_graffiti_art_clip,
     detect_traffic_sign_clip,
-    detect_abandoned_vehicle_clip,
-    detect_all_clip
+    detect_abandoned_vehicle_clip
 )
 from backend.dependencies import get_http_client
 import backend.dependencies
@@ -436,60 +435,4 @@ async def detect_abandoned_vehicle_endpoint(request: Request, image: UploadFile 
         return {"detections": detections}
     except Exception as e:
         logger.error(f"Abandoned vehicle detection error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-@router.post("/api/analyze-issue")
-async def analyze_issue_endpoint(
-    request: Request,
-    description: str = Form(...),
-    image: UploadFile = File(...)
-):
-    """
-    Comprehensive analysis of an issue using optimized detection and text analysis.
-    """
-    try:
-        # Optimized Image Processing
-        _, image_bytes = await process_uploaded_image(image)
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    try:
-        client = get_http_client(request)
-
-        # Run optimized detection (single API call for HF)
-        # We use detect_all_clip directly here because we want the optimized path
-        # If we used UnifiedDetectionService.detect_all, it would dispatch to this anyway if backend is HF
-        # But this endpoint is specifically designed for the "feature without slowing down" requirement
-        # which heavily implies leveraging the optimization.
-
-        # Parallel execution of visual detection and text analysis
-        import asyncio
-        from backend.hf_api_service import analyze_urgency_text
-        detections_task = detect_all_clip(image_bytes, client=client)
-        urgency_task = analyze_urgency_text(description, client=client)
-
-        detections, urgency_result = await asyncio.gather(detections_task, urgency_task)
-
-        # Construct recommended actions based on findings
-        actions = urgency_result.get("recommended_actions", [])
-        if actions is None:
-            actions = []
-
-        # Add visual-based actions
-        if detections.get("fire"):
-            actions.insert(0, "Call Fire Department immediately")
-        if detections.get("flooding"):
-            actions.append("Avoid the area and seek higher ground")
-        if detections.get("vandalism"):
-            actions.append("Report to local police non-emergency line")
-
-        return {
-            "visual_analysis": detections,
-            "text_analysis": urgency_result,
-            "recommended_actions": list(dict.fromkeys(actions)) # Deduplicate while preserving order
-        }
-
-    except Exception as e:
-        logger.error(f"Issue analysis error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")

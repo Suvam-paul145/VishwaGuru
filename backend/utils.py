@@ -8,10 +8,7 @@ import os
 import shutil
 import logging
 import io
-try:
-    import magic
-except ImportError:
-    magic = None
+import magic
 from typing import Optional
 
 from backend.cache import user_upload_cache
@@ -76,18 +73,17 @@ def _validate_uploaded_file_sync(file: UploadFile) -> Optional[Image.Image]:
 
     # Check MIME type from content using python-magic
     try:
-        if magic:
-            # Read first 1024 bytes for MIME detection
-            file_content = file.file.read(1024)
-            file.file.seek(0)  # Reset file pointer
+        # Read first 1024 bytes for MIME detection
+        file_content = file.file.read(1024)
+        file.file.seek(0)  # Reset file pointer
 
-            detected_mime = magic.from_buffer(file_content, mime=True)
+        detected_mime = magic.from_buffer(file_content, mime=True)
 
-            if detected_mime not in ALLOWED_MIME_TYPES:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid file type. Only image files are allowed. Detected: {detected_mime}"
-                )
+        if detected_mime not in ALLOWED_MIME_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type. Only image files are allowed. Detected: {detected_mime}"
+            )
 
         # Additional content validation: Try to open with PIL to ensure it's a valid image
         try:
@@ -162,16 +158,15 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
 
     # Check MIME type
     try:
-        if magic:
-            file_content = file.file.read(1024)
-            file.file.seek(0)
-            detected_mime = magic.from_buffer(file_content, mime=True)
+        file_content = file.file.read(1024)
+        file.file.seek(0)
+        detected_mime = magic.from_buffer(file_content, mime=True)
 
-            if detected_mime not in ALLOWED_MIME_TYPES:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid file type. Only image files are allowed. Detected: {detected_mime}"
-                )
+        if detected_mime not in ALLOWED_MIME_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type. Only image files are allowed. Detected: {detected_mime}"
+            )
 
         try:
             img = Image.open(file.file)

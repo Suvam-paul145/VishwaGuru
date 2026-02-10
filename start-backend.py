@@ -29,7 +29,8 @@ def validate_environment():
             print(f"   - {var}")
         print("\nPlease set these variables or create a .env file.")
         print("See backend/.env.example for reference.")
-        return False
+        # We don't return False here to allow the app to start and serve health check
+        print("⚠️  Proceeding with missing variables (some features may be broken)")
 
     # Set defaults for optional variables
     if not os.getenv("DATABASE_URL"):
@@ -60,8 +61,7 @@ def main():
     """Main startup function"""
     print("🚀 Starting VishwaGuru Backend")
 
-    if not validate_environment():
-        sys.exit(1)
+    validate_environment()
 
     create_data_directory()
 
