@@ -456,3 +456,68 @@ async def detect_abandoned_vehicle_clip(image: Union[Image.Image, bytes], client
     labels = ["abandoned car", "rusted vehicle", "car with flat tires", "wrecked car", "normal parked car"]
     targets = ["abandoned car", "rusted vehicle", "car with flat tires", "wrecked car"]
     return await _detect_clip_generic(image, labels, targets, client)
+
+
+async def detect_public_facilities_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    """
+    Assesses the condition of public facilities (bench, bin, playground, lighting).
+    """
+    amenity_labels = ["broken bench", "maintained bench", "clean public toilet", "dirty public toilet", "functional street light", "broken street light"]
+    cleanliness_labels = ["overflowing bin", "empty bin", "littered park", "clean park"]
+    safety_labels = ["safe playground", "unsafe playground equipment", "vandalized facility", "secure facility"]
+
+    img_bytes = _prepare_image_bytes(image)
+    all_labels = amenity_labels + cleanliness_labels + safety_labels
+
+    results = await query_hf_api(img_bytes, all_labels, client=client)
+
+    if not isinstance(results, list):
+        return {"error": "Analysis failed"}
+
+    def get_top_category(res_list, category_labels):
+        relevant = [r for r in res_list if r.get('label') in category_labels]
+        if relevant:
+            return relevant[0]
+        return {"label": "unknown", "score": 0}
+
+    amenity = get_top_category(results, amenity_labels)
+    cleanliness = get_top_category(results, cleanliness_labels)
+    safety = get_top_category(results, safety_labels)
+
+    return {
+        "amenity": {"status": amenity['label'], "score": amenity['score']},
+        "cleanliness": {"status": cleanliness['label'], "score": cleanliness['score']},
+        "safety": {"status": safety['label'], "score": safety['score']}
+    }
+
+async def detect_construction_safety_clip(image: Union[Image.Image, bytes], client: httpx.AsyncClient = None):
+    """
+    Assesses construction site safety compliance.
+    """
+    ppe_labels = ["workers wearing helmets", "workers without helmets", "high visibility vest", "no safety gear"]
+    site_labels = ["secure fencing", "open excavation", "proper signage", "missing signage"]
+    hazard_labels = ["safe scaffolding", "unsafe scaffolding", "falling hazard", "clear walkway", "blocked walkway"]
+
+    img_bytes = _prepare_image_bytes(image)
+    all_labels = ppe_labels + site_labels + hazard_labels
+
+    results = await query_hf_api(img_bytes, all_labels, client=client)
+
+    if not isinstance(results, list):
+        return {"error": "Analysis failed"}
+
+    def get_top_category(res_list, category_labels):
+        relevant = [r for r in res_list if r.get('label') in category_labels]
+        if relevant:
+            return relevant[0]
+        return {"label": "unknown", "score": 0}
+
+    ppe = get_top_category(results, ppe_labels)
+    site = get_top_category(results, site_labels)
+    hazard = get_top_category(results, hazard_labels)
+
+    return {
+        "ppe": {"status": ppe['label'], "score": ppe['score']},
+        "site": {"status": site['label'], "score": site['score']},
+        "hazard": {"status": hazard['label'], "score": hazard['score']}
+    }

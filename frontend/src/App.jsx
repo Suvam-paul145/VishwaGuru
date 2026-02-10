@@ -36,6 +36,8 @@ const SmartScanner = React.lazy(() => import('./SmartScanner'));
 const GrievanceAnalysis = React.lazy(() => import('./views/GrievanceAnalysis'));
 const NoiseDetector = React.lazy(() => import('./NoiseDetector'));
 const CivicEyeDetector = React.lazy(() => import('./CivicEyeDetector'));
+const PublicFacilitiesDetector = React.lazy(() => import('./PublicFacilitiesDetector'));
+const ConstructionSafetyDetector = React.lazy(() => import('./ConstructionSafetyDetector'));
 const MyReportsView = React.lazy(() => import('./views/MyReportsView'));
 
 
@@ -61,12 +63,12 @@ function AppContent() {
 
   // Safe navigation helper
   const navigateToView = useCallback((view) => {
-    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'noise', 'safety-check', 'my-reports', 'login', 'signup'];
+    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'noise', 'safety-check', 'public-facilities', 'construction-safety', 'my-reports', 'login', 'signup'];
     if (validViews.includes(view)) {
-      navigate(view === 'home' ? '/' : `/${view}`);
+      navigate(view === 'home' ? '/home' : `/${view}`);
     } else {
       console.warn(`Attempted to navigate to invalid view: ${view}`);
-      navigate('/');
+      navigate('/home');
     }
   }, [navigate]);
 
@@ -193,7 +195,7 @@ function AppContent() {
             />
 
             <Route
-              path="/"
+              path="/home"
               element={
                 <Home
                   setView={navigateToView}
@@ -296,6 +298,8 @@ function AppContent() {
                 <CivicEyeDetector onBack={() => navigate('/')} />
               </div>
             } />
+            <Route path="/public-facilities" element={<PublicFacilitiesDetector onBack={() => navigate('/')} />} />
+            <Route path="/construction-safety" element={<ConstructionSafetyDetector onBack={() => navigate('/')} />} />
             <Route path="/my-reports" element={
               <ProtectedRoute>
                 <MyReportsView />
