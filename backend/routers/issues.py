@@ -694,4 +694,4 @@ def get_recent_issues(
 
     # Thread-safe cache update
     recent_issues_cache.set(data, cache_key)
-    return data
+    return JSONResponse(content=data)
