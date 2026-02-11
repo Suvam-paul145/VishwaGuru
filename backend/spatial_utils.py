@@ -3,8 +3,6 @@ Spatial utilities for geospatial operations and deduplication.
 """
 import math
 from typing import List, Tuple, Optional
-from sklearn.cluster import DBSCAN
-import numpy as np
 
 from backend.models import Issue
 
@@ -147,6 +145,15 @@ def cluster_issues_dbscan(issues: List[Issue], eps_meters: float = 30.0) -> List
     ]
 
     if not valid_issues:
+        return []
+
+    # Import scikit-learn and numpy only when needed to avoid heavy startup overhead
+    # and potential import errors in environments with limited resources
+    try:
+        from sklearn.cluster import DBSCAN
+        import numpy as np
+    except ImportError:
+        # Fallback if scikit-learn is not installed
         return []
 
     # Convert to numpy array for DBSCAN
