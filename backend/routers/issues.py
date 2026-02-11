@@ -189,7 +189,8 @@ async def create_issue(
                 longitude=longitude,
                 location=location,
                 action_plan=None,
-                integrity_hash=integrity_hash
+                integrity_hash=integrity_hash,
+                status="open"
             )
 
             # Offload blocking DB operations to threadpool
