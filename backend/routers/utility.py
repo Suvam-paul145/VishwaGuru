@@ -82,6 +82,7 @@ def get_stats(db: Session = Depends(get_db)):
     )
 
     data = response.model_dump(mode='json')
+    # Note: ThreadSafeCache uses set(data, key) signature.
     recent_issues_cache.set(data, "stats")
 
     return response
@@ -148,6 +149,7 @@ def get_leaderboard(db: Session = Depends(get_db)):
 
     response_data = {"leaderboard": leaderboard_data}
     # Cache for 5 minutes to reduce DB load on frequent hits
+    # Note: ThreadSafeCache uses set(data, key) signature.
     recent_issues_cache.set(response_data, cache_key)
 
     return response_data

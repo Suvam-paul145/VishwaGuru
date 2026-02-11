@@ -226,6 +226,7 @@ async def create_issue(
             # Bolt Optimization: We clear the cache to ensure the new issue appears in lists,
             # but we'll re-populate the last_integrity_hash to keep issue creation fast.
             recent_issues_cache.clear()
+            # Note: ThreadSafeCache uses set(data, key) signature.
             recent_issues_cache.set(new_issue.integrity_hash, last_hash_cache_key)
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")
@@ -639,6 +640,7 @@ async def verify_blockchain_integrity(issue_id: int, db: Session = Depends(get_d
     hash_content = f"{current_issue.description}|{current_issue.category}|{prev_hash}"
     computed_hash = hashlib.sha256(hash_content.encode()).hexdigest()
 
+    logger.debug(f"Blockchain verify id={issue_id}: computed={computed_hash}, stored={current_issue.integrity_hash}")
     is_valid = (computed_hash == current_issue.integrity_hash)
 
     if is_valid:
@@ -699,6 +701,6 @@ def get_recent_issues(
             "longitude": row.longitude
         })
 
-    # Thread-safe cache update
+    # Thread-safe cache update. Note: ThreadSafeCache uses set(data, key) signature.
     recent_issues_cache.set(data, cache_key)
     return data
