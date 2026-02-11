@@ -53,14 +53,27 @@ def get_stats(db: Session = Depends(get_db)):
     if cached_stats:
         return JSONResponse(content=cached_stats)
 
-    total = db.query(func.count(Issue.id)).scalar()
-    resolved = db.query(func.count(Issue.id)).filter(Issue.status.in_(['resolved', 'verified'])).scalar()
-    # Pending is everything else
-    pending = total - resolved
+    # Bolt Optimization: Fetch category and status counts in a single grouped query
+    # to avoid 3 separate database roundtrips.
+    counts = db.query(
+        Issue.category, Issue.status, func.count(Issue.id)
+    ).group_by(Issue.category, Issue.status).all()
 
-    # By category
-    cat_counts = db.query(Issue.category, func.count(Issue.id)).group_by(Issue.category).all()
-    issues_by_category = {cat: count for cat, count in cat_counts}
+    total = 0
+    resolved = 0
+    issues_by_category = {}
+
+    for cat, status, count in counts:
+        # Map None category to 'Uncategorized' for Dict[str, int] schema compliance
+        cat_name = cat if cat else "Uncategorized"
+
+        total += count
+        if status in ['resolved', 'verified']:
+            resolved += count
+
+        issues_by_category[cat_name] = issues_by_category.get(cat_name, 0) + count
+
+    pending = total - resolved
 
     response = StatsResponse(
         total_issues=total,

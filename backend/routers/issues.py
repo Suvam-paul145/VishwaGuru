@@ -164,15 +164,21 @@ async def create_issue(
             logger.error(f"Error during spatial deduplication check: {e}", exc_info=True)
             # Continue with issue creation if deduplication fails
 
+    # Bolt Optimization: Check cache first to eliminate DB roundtrip on every creation
+    last_hash_cache_key = "last_integrity_hash"
+
     try:
         # Save to DB only if no nearby issues found or deduplication failed
         if deduplication_info is None or not deduplication_info.has_nearby_issues:
             # Blockchain feature: calculate integrity hash for the report
-            # Optimization: Fetch only the last hash to maintain the chain with minimal overhead
-            prev_issue = await run_in_threadpool(
-                lambda: db.query(Issue.integrity_hash).order_by(Issue.id.desc()).first()
-            )
-            prev_hash = prev_issue[0] if prev_issue and prev_issue[0] else ""
+            prev_hash = recent_issues_cache.get(last_hash_cache_key)
+
+            if prev_hash is None:
+                # Cache miss: Fetch only the last hash to maintain the chain with minimal overhead
+                prev_issue = await run_in_threadpool(
+                    lambda: db.query(Issue.integrity_hash).order_by(Issue.id.desc()).first()
+                )
+                prev_hash = prev_issue[0] if prev_issue and prev_issue[0] else ""
 
             # Simple but effective SHA-256 chaining
             hash_content = f"{description}|{category}|{prev_hash}"
@@ -217,7 +223,10 @@ async def create_issue(
 
         # Invalidate cache so new issue appears
         try:
+            # Bolt Optimization: We clear the cache to ensure the new issue appears in lists,
+            # but we'll re-populate the last_integrity_hash to keep issue creation fast.
             recent_issues_cache.clear()
+            recent_issues_cache.set(new_issue.integrity_hash, last_hash_cache_key)
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")
 
@@ -608,24 +617,22 @@ def get_user_issues(
 async def verify_blockchain_integrity(issue_id: int, db: Session = Depends(get_db)):
     """
     Verify the cryptographic integrity of a report using the blockchain-style chaining.
-    Optimized: Uses column projection to fetch only needed data.
+    Lightning Fast: Consolidates current and previous issue fetches into a single query roundtrip.
     """
-    # Fetch current issue data
-    current_issue = await run_in_threadpool(
+    # Fetch both current issue and its predecessor in the chain using one query
+    # Bolt Optimization: filter(id <= target) + order_by(desc) + limit(2)
+    issues = await run_in_threadpool(
         lambda: db.query(
             Issue.id, Issue.description, Issue.category, Issue.integrity_hash
-        ).filter(Issue.id == issue_id).first()
+        ).filter(Issue.id <= issue_id).order_by(Issue.id.desc()).limit(2).all()
     )
 
-    if not current_issue:
+    if not issues or issues[0].id != issue_id:
         raise HTTPException(status_code=404, detail="Issue not found")
 
-    # Fetch previous issue's integrity hash to verify the chain
-    prev_issue_hash = await run_in_threadpool(
-        lambda: db.query(Issue.integrity_hash).filter(Issue.id < issue_id).order_by(Issue.id.desc()).first()
-    )
-
-    prev_hash = prev_issue_hash[0] if prev_issue_hash and prev_issue_hash[0] else ""
+    current_issue = issues[0]
+    # Previous hash is from the second result (if it exists)
+    prev_hash = issues[1].integrity_hash if len(issues) > 1 else ""
 
     # Recompute hash based on current data and previous hash
     # Chaining logic: hash(description|category|prev_hash)
