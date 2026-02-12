@@ -164,15 +164,3 @@ app.include_router(grievances.router, tags=["Grievances"])
 app.include_router(utility.router, tags=["Utility"])
 app.include_router(auth.router, tags=["Authentication"])
 app.include_router(admin.router)
-
-@app.get("/health")
-def health():
-    return {"status": "healthy"}
-
-@app.get("/")
-def root():
-    return {
-        "status": "ok",
-        "service": "VishwaGuru API",
-        "version": "1.0.0"
-    }
