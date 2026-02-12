@@ -15,6 +15,6 @@ firebase-functions
 firebase-admin
 a2wsgi
 scikit-learn
-numpy
+numpy<2.0.0
 python-jose[cryptography]
 passlib[bcrypt]

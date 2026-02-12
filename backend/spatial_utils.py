@@ -3,8 +3,9 @@ Spatial utilities for geospatial operations and deduplication.
 """
 import math
 from typing import List, Tuple, Optional
-from sklearn.cluster import DBSCAN
-import numpy as np
+# Lazy import for heavy ML libraries to improve startup time and reduce memory usage
+# from sklearn.cluster import DBSCAN
+# import numpy as np
 
 from backend.models import Issue
 
@@ -137,6 +138,15 @@ def cluster_issues_dbscan(issues: List[Issue], eps_meters: float = 30.0) -> List
     Returns:
         List of clusters, where each cluster is a list of Issue objects
     """
+    # Lazy import to avoid loading heavy libraries on startup
+    try:
+        from sklearn.cluster import DBSCAN
+        import numpy as np
+    except ImportError:
+        # Fallback or log error if dependencies are missing (e.g. in minimal environments)
+        # For now, we assume they are installed but lazy loaded
+        raise ImportError("scikit-learn and numpy are required for spatial clustering. Please install them.")
+
     # Filter issues with valid coordinates
     valid_issues = [
         issue for issue in issues
