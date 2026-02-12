@@ -1,10 +1,7 @@
-# Netlify Configuration for VishwaGuru Frontend
-# Simplified build configuration relying on files in frontend/public
-
 [build]
-  # Execute from root, publish frontend/dist
-  publish = "frontend/dist"
-  command = "cd frontend && npm ci && npm run build"
+  base = "frontend"
+  publish = "dist"
+  command = "npm ci && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
