@@ -17,7 +17,6 @@ from backend.ai_service import chat_with_civic_assistant
 from backend.gemini_services import get_ai_services
 from backend.maharashtra_locator import (
     find_constituency_by_pincode,
-    find_mla_by_constituency,
     find_mla_by_constituency
 )
 
@@ -93,10 +92,23 @@ async def ml_status():
     Returns information about which backend is being used (local or HF API).
     """
     status = await get_detection_status()
+
+    # Map UnifiedDetectionService status to MLStatusResponse schema
+    active_backend = status.get("active_backend") or "none"
+
+    # Determine models loaded based on active backend
+    models = []
+    if active_backend == "local":
+        details = status.get("local_backend", {}).get("details", {})
+        if details.get("model_loaded"):
+            models.append("yolov8n")
+    elif active_backend == "huggingface":
+        models.append("clip-vit-base-patch32")
+
     return MLStatusResponse(
-        status="ok",
-        models_loaded=status.get("models_loaded", []),
-        memory_usage=status.get("memory_usage")
+        status="ok" if active_backend != "none" else "degraded",
+        models_loaded=models,
+        memory_usage={"active_backend": active_backend}
     )
 
 @router.post("/api/chat", response_model=ChatResponse)
