@@ -124,6 +124,27 @@ def migrate_db():
             except Exception:
                 pass
 
+            # Add parent_issue_id column
+            try:
+                conn.execute(text("ALTER TABLE issues ADD COLUMN parent_issue_id INTEGER"))
+                print("Migrated database: Added parent_issue_id column.")
+            except Exception:
+                pass
+
+            # Add previous_integrity_hash column
+            try:
+                conn.execute(text("ALTER TABLE issues ADD COLUMN previous_integrity_hash VARCHAR"))
+                print("Migrated database: Added previous_integrity_hash column.")
+            except Exception:
+                pass
+
+            # Add index on parent_issue_id
+            try:
+                conn.execute(text("CREATE INDEX ix_issues_parent_issue_id ON issues (parent_issue_id)"))
+                logger.info("Migrated database: Added index on parent_issue_id column.")
+            except Exception:
+                pass
+
             # Add index on user_email
             try:
                 conn.execute(text("CREATE INDEX ix_issues_user_email ON issues (user_email)"))
