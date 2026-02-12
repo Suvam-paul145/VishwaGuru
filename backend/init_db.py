@@ -28,9 +28,13 @@ def migrate_db():
     """
     Perform database migrations.
     This is a simple MVP migration strategy.
+    Wraps entire process in try-except to prevent app crash on startup if DB is locked/unavailable.
     """
     try:
+        # Check connection first
         with engine.connect() as conn:
+            logger.info("Database connection successful for migration check.")
+
             # Check for upvotes column and add if missing
             try:
                 # SQLite doesn't support IF NOT EXISTS in ALTER TABLE
@@ -232,4 +236,6 @@ def migrate_db():
             conn.commit()
             logger.info("Database migration check completed.")
     except Exception as e:
-        logger.error(f"Database migration error: {e}")
+        logger.error(f"Database migration error (Non-fatal): {e}")
+        # We catch the exception but do NOT re-raise it, allowing the app to start
+        # even if migration fails (e.g., due to temporary DB issues or schema conflicts)
