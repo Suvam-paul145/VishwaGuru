@@ -56,6 +56,28 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
+def equirectangular_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate the distance between two points using the Equirectangular approximation.
+    Faster than Haversine for small distances (< 100km).
+    Handles dateline wrapping.
+
+    Returns distance in meters.
+    """
+    R = 6371000.0
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    lon1_rad = math.radians(lon1)
+    lon2_rad = math.radians(lon2)
+
+    # Handle dateline wrapping
+    diff_lon = (lon2_rad - lon1_rad + math.pi) % (2 * math.pi) - math.pi
+
+    x = diff_lon * math.cos((lat1_rad + lat2_rad) / 2)
+    y = lat2_rad - lat1_rad
+    return R * math.sqrt(x * x + y * y)
+
+
 def find_nearby_issues(
     issues: List[Issue],
     target_lat: float,
@@ -76,14 +98,23 @@ def find_nearby_issues(
     """
     nearby_issues = []
 
+    # Use equirectangular approximation for short distances (< 10km) for performance
+    use_equirectangular = radius_meters < 10000.0
+
     for issue in issues:
         if issue.latitude is None or issue.longitude is None:
             continue
 
-        distance = haversine_distance(
-            target_lat, target_lon,
-            issue.latitude, issue.longitude
-        )
+        if use_equirectangular:
+            distance = equirectangular_distance(
+                target_lat, target_lon,
+                issue.latitude, issue.longitude
+            )
+        else:
+            distance = haversine_distance(
+                target_lat, target_lon,
+                issue.latitude, issue.longitude
+            )
 
         if distance <= radius_meters:
             nearby_issues.append((issue, distance))
