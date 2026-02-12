@@ -1,19 +1,11 @@
 # Netlify Configuration for VishwaGuru Frontend
+# Simplified build configuration relying on files in frontend/public
 
 [build]
-  # Execute from root, explicit paths
+  # Execute from root, publish frontend/dist
   publish = "frontend/dist"
-  command = "cd frontend && npm install && npm run build"
+  command = "cd frontend && npm ci && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
-  CI = "false"
-
-# Environment variables (set these in Netlify dashboard)
-# VITE_API_URL = https://your-backend.onrender.com
-
-# Redirects for SPA
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+  CI = "true"
