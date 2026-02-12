@@ -37,6 +37,8 @@ const SmartScanner = React.lazy(() => import('./SmartScanner'));
 const GrievanceAnalysis = React.lazy(() => import('./views/GrievanceAnalysis'));
 const NoiseDetector = React.lazy(() => import('./NoiseDetector'));
 const CivicEyeDetector = React.lazy(() => import('./CivicEyeDetector'));
+const PublicFacilitiesDetector = React.lazy(() => import('./PublicFacilitiesDetector'));
+const ConstructionSafetyDetector = React.lazy(() => import('./ConstructionSafetyDetector'));
 const MyReportsView = React.lazy(() => import('./views/MyReportsView'));
 
 
@@ -63,7 +65,7 @@ function AppContent() {
 
   // Safe navigation helper
   const navigateToView = useCallback((view) => {
-    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'noise', 'safety-check', 'my-reports', 'login', 'signup'];
+    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'noise', 'safety-check', 'public-facilities', 'construction-safety', 'my-reports', 'login', 'signup'];
     if (validViews.includes(view)) {
       navigate(view === 'home' ? '/' : `/${view}`);
     } else {
@@ -291,6 +293,8 @@ function AppContent() {
             <Route path="/smart-scan" element={<SmartScanner onBack={() => navigate('/')} />} />
             <Route path="/grievance-analysis" element={<GrievanceAnalysis onBack={() => navigate('/')} />} />
             <Route path="/noise" element={<NoiseDetector onBack={() => navigate('/')} />} />
+            <Route path="/public-facilities" element={<PublicFacilitiesDetector onBack={() => navigate('/')} />} />
+            <Route path="/construction-safety" element={<ConstructionSafetyDetector onBack={() => navigate('/')} />} />
             <Route path="/safety-check" element={
               <div className="flex flex-col h-full p-4">
                 <button onClick={() => navigate('/')} className="self-start text-blue-600 mb-2 font-bold">
