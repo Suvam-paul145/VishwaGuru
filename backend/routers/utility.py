@@ -60,7 +60,7 @@ def get_stats(db: Session = Depends(get_db)):
     # Perform all counts in a single pass using conditional aggregation
     stats = db.query(
         func.count(Issue.id).label("total"),
-        func.sum(case((Issue.status.in_(['resolved', 'verified']), 1), else_=0)).label("resolved")
+        func.sum(case({Issue.status.in_(['resolved', 'verified']): 1}, else_=0)).label("resolved")
     ).first()
 
     total = stats.total or 0
