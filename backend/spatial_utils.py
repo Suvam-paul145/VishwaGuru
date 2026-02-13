@@ -3,7 +3,10 @@ Spatial utilities for geospatial operations and deduplication.
 """
 import math
 from typing import List, Tuple, Optional
-from sklearn.cluster import DBSCAN
+try:
+    from sklearn.cluster import DBSCAN
+except ImportError:
+    DBSCAN = None
 import numpy as np
 
 from backend.models import Issue
@@ -126,13 +129,19 @@ def cluster_issues_dbscan(issues: List[Issue], eps_meters: float = 30.0) -> List
     eps_degrees = eps_meters / 111000  # Rough approximation
 
     # Perform DBSCAN clustering
-    db = DBSCAN(eps=eps_degrees, min_samples=1, metric='haversine').fit(
-        np.radians(coordinates)
-    )
+    if DBSCAN:
+        db = DBSCAN(eps=eps_degrees, min_samples=1, metric='haversine').fit(
+            np.radians(coordinates)
+        )
+        labels = db.labels_
+    else:
+        # Fallback: Treat each issue as its own cluster if sklearn is missing
+        # or implement a simple distance-based clustering here if critical
+        labels = range(len(valid_issues))
 
     # Group issues by cluster
     clusters = {}
-    for i, label in enumerate(db.labels_):
+    for i, label in enumerate(labels):
         if label not in clusters:
             clusters[label] = []
         clusters[label].append(valid_issues[i])
