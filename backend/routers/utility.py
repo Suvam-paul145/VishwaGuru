@@ -17,7 +17,6 @@ from backend.ai_service import chat_with_civic_assistant
 from backend.gemini_services import get_ai_services
 from backend.maharashtra_locator import (
     find_constituency_by_pincode,
-    find_mla_by_constituency,
     find_mla_by_constituency
 )
 
