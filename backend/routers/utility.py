@@ -17,7 +17,6 @@ from backend.ai_service import chat_with_civic_assistant
 from backend.gemini_services import get_ai_services
 from backend.maharashtra_locator import (
     find_constituency_by_pincode,
-    find_mla_by_constituency,
     find_mla_by_constituency
 )
 
@@ -60,8 +59,8 @@ def get_stats(db: Session = Depends(get_db)):
         func.sum(case((Issue.status.in_(['resolved', 'verified']), 1), else_=0)).label('resolved')
     ).first()
 
-    total = stats.total or 0
-    resolved = int(stats.resolved or 0)
+    total = getattr(stats, 'total', 0) or 0
+    resolved = int(getattr(stats, 'resolved', 0) or 0)
     pending = total - resolved
 
     # By category
