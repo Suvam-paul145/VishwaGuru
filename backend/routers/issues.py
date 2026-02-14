@@ -658,7 +658,7 @@ async def verify_blockchain_integrity(issue_id: int, db: Session = Depends(get_d
             lambda: db.query(Issue.integrity_hash).filter(Issue.id < issue_id).order_by(Issue.id.desc()).first()
         )
         actual_prev_hash = actual_prev_hash_row[0] if actual_prev_hash_row and actual_prev_hash_row[0] else ""
-        chain_intact = (prev_hash == actual_prev_hash)
+        chain_intact = ((prev_hash or "") == actual_prev_hash)
 
     is_valid = internal_valid and chain_intact
 

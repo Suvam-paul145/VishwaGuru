@@ -59,8 +59,8 @@ def get_stats(db: Session = Depends(get_db)):
         func.sum(case((Issue.status.in_(['resolved', 'verified']), 1), else_=0)).label('resolved')
     ).first()
 
-    total = getattr(stats, 'total', 0) or 0
-    resolved = int(getattr(stats, 'resolved', 0) or 0)
+    total = stats.total if stats else 0
+    resolved = int(stats.resolved) if stats and stats.resolved is not None else 0
     pending = total - resolved
 
     # By category
