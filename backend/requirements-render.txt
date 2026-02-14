@@ -16,5 +16,3 @@ a2wsgi
 numpy
 python-jose[cryptography]
 passlib[bcrypt]
-joblib
-scikit-learn
