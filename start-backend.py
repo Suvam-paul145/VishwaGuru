@@ -24,12 +24,14 @@ def validate_environment():
             missing_vars.append(var)
 
     if missing_vars:
-        print("❌ Missing required environment variables:")
+        print("⚠️ Missing required environment variables:")
         for var in missing_vars:
             print(f"   - {var}")
         print("\nPlease set these variables or create a .env file.")
         print("See backend/.env.example for reference.")
-        return False
+        # We continue execution instead of returning False to allow the service to start
+        # and report health status, even if some features are disabled.
+        # return False
 
     # Set defaults for optional variables
     if not os.getenv("DATABASE_URL"):
