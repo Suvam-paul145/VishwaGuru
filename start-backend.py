@@ -24,32 +24,16 @@ def validate_environment():
             missing_vars.append(var)
 
     if missing_vars:
-        print("⚠️  Warning: Missing environment variables:")
+        print("❌ Missing required environment variables:")
         for var in missing_vars:
             print(f"   - {var}")
-        print("\nPlease set these variables in your deployment dashboard.")
-        # We don't exit here anymore to allow the service to start (and fail gracefully or provide health checks)
+        print("\nPlease set these variables or create a .env file.")
+        print("See backend/.env.example for reference.")
         return False
-
-    return True
-
-def create_data_directory():
-    """Create data directory for SQLite database"""
-    data_dir = Path("data")
-    data_dir.mkdir(exist_ok=True)
-    print("✅ Data directory ready")
-
-def main():
-    """Main startup function"""
-    print("🚀 Starting VishwaGuru Backend")
-
-    # Just warn, don't exit
-    validate_environment()
 
     # Set defaults for optional variables
     if not os.getenv("DATABASE_URL"):
         os.environ["DATABASE_URL"] = "sqlite:///./data/issues.db"
-        print("ℹ️  Using default SQLite database")
 
     if not os.getenv("ENVIRONMENT"):
         os.environ["ENVIRONMENT"] = "production"
@@ -63,6 +47,22 @@ def main():
     else:
         print("✅ HF_TOKEN found")
 
+    print("✅ Environment validation passed")
+    return True
+
+def create_data_directory():
+    """Create data directory for SQLite database"""
+    data_dir = Path("data")
+    data_dir.mkdir(exist_ok=True)
+    print("✅ Data directory ready")
+
+def main():
+    """Main startup function"""
+    print("🚀 Starting VishwaGuru Backend")
+
+    if not validate_environment():
+        sys.exit(1)
+
     create_data_directory()
 
     # Get port from environment or default to 8000
@@ -72,18 +72,14 @@ def main():
     print(f"📡 Starting server on {host}:{port}")
 
     # Start the server
-    try:
-        # We use the full module path 'backend.main:app' because we added repo_root to sys.path
-        uvicorn.run(
-            "backend.main:app",
-            host=host,
-            port=port,
-            reload=False,  # Disable reload in production
-            log_level="info"
-        )
-    except Exception as e:
-        print(f"❌ Failed to start server: {e}")
-        sys.exit(1)
+    # We use the full module path 'backend.main:app' because we added repo_root to sys.path
+    uvicorn.run(
+        "backend.main:app",
+        host=host,
+        port=port,
+        reload=False,  # Disable reload in production
+        log_level="info"
+    )
 
 if __name__ == "__main__":
     main()
