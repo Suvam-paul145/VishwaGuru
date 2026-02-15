@@ -1,6 +1,8 @@
 import sys
 import os
+import logging
 from pathlib import Path
+from sqlalchemy import text
 
 # Add project root to path
 current_file = Path(__file__).resolve()
@@ -11,18 +13,12 @@ sys.path.insert(0, str(repo_root))
 from backend.database import engine, Base
 from backend.models import *
 
+logger = logging.getLogger(__name__)
+
 def init_db():
     print("Creating tables...")
     Base.metadata.create_all(bind=engine)
     print("Tables created.")
-
-if __name__ == "__main__":
-    init_db()
-from sqlalchemy import text
-from backend.database import engine
-import logging
-
-logger = logging.getLogger(__name__)
 
 def migrate_db():
     """
@@ -124,6 +120,27 @@ def migrate_db():
             except Exception:
                 pass
 
+            # Add previous_integrity_hash column for blockchain chaining
+            try:
+                conn.execute(text("ALTER TABLE issues ADD COLUMN previous_integrity_hash VARCHAR"))
+                print("Migrated database: Added previous_integrity_hash column.")
+            except Exception:
+                pass
+
+            # Add parent_issue_id column for duplicate tracking
+            try:
+                conn.execute(text("ALTER TABLE issues ADD COLUMN parent_issue_id INTEGER"))
+                print("Migrated database: Added parent_issue_id column.")
+            except Exception:
+                pass
+
+            # Add index on parent_issue_id
+            try:
+                conn.execute(text("CREATE INDEX ix_issues_parent_issue_id ON issues (parent_issue_id)"))
+                print("Migrated database: Added index on parent_issue_id column.")
+            except Exception:
+                pass
+
             # Add index on user_email
             try:
                 conn.execute(text("CREATE INDEX ix_issues_user_email ON issues (user_email)"))
@@ -212,3 +229,7 @@ def migrate_db():
             logger.info("Database migration check completed.")
     except Exception as e:
         logger.error(f"Database migration error: {e}")
+
+if __name__ == "__main__":
+    init_db()
+    migrate_db()
