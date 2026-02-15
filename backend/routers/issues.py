@@ -97,10 +97,11 @@ async def create_issue(
             min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, 50.0)
 
             # Performance Boost: Use column projection to avoid loading full model instances
+            # Optimization: Fetch only truncated description (101 chars) to save bandwidth
             open_issues = await run_in_threadpool(
                 lambda: db.query(
                     Issue.id,
-                    Issue.description,
+                    func.substr(Issue.description, 1, 101).label("description"),
                     Issue.category,
                     Issue.latitude,
                     Issue.longitude,
@@ -300,9 +301,10 @@ def get_nearby_issues(
         min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, radius)
 
         # Performance Boost: Use column projection to avoid loading full model instances
+        # Optimization: Fetch only truncated description (101 chars) to save bandwidth
         open_issues = db.query(
             Issue.id,
-            Issue.description,
+            func.substr(Issue.description, 1, 101).label("description"),
             Issue.category,
             Issue.latitude,
             Issue.longitude,
@@ -568,10 +570,11 @@ def get_user_issues(
     Get issues reported by a specific user (identified by email).
     Optimized: Uses column projection to avoid loading full model instances and large fields.
     """
+    # Optimization: Fetch only truncated description (101 chars) since we only display a summary
     results = db.query(
         Issue.id,
         Issue.category,
-        Issue.description,
+        func.substr(Issue.description, 1, 101).label("description"),
         Issue.created_at,
         Issue.image_path,
         Issue.status,
@@ -659,10 +662,11 @@ def get_recent_issues(
 
     # Fetch issues with pagination
     # Optimized: Use column projection to fetch only needed fields
+    # Optimization: Fetch only truncated description (101 chars) to save bandwidth
     results = db.query(
         Issue.id,
         Issue.category,
-        Issue.description,
+        func.substr(Issue.description, 1, 101).label("description"),
         Issue.created_at,
         Issue.image_path,
         Issue.status,
