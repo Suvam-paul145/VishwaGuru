@@ -101,7 +101,7 @@ async def create_issue(
             open_issues = await run_in_threadpool(
                 lambda: db.query(
                     Issue.id,
-                    func.substr(Issue.description, 1, 101).label("description"),
+                    func.coalesce(func.substr(Issue.description, 1, 101), "").label("description"),
                     Issue.category,
                     Issue.latitude,
                     Issue.longitude,
@@ -304,7 +304,7 @@ def get_nearby_issues(
         # Optimization: Fetch only truncated description (101 chars) to save bandwidth
         open_issues = db.query(
             Issue.id,
-            func.substr(Issue.description, 1, 101).label("description"),
+            func.coalesce(func.substr(Issue.description, 1, 101), "").label("description"),
             Issue.category,
             Issue.latitude,
             Issue.longitude,
@@ -574,7 +574,7 @@ def get_user_issues(
     results = db.query(
         Issue.id,
         Issue.category,
-        func.substr(Issue.description, 1, 101).label("description"),
+        func.coalesce(func.substr(Issue.description, 1, 101), "").label("description"),
         Issue.created_at,
         Issue.image_path,
         Issue.status,
@@ -666,7 +666,7 @@ def get_recent_issues(
     results = db.query(
         Issue.id,
         Issue.category,
-        func.substr(Issue.description, 1, 101).label("description"),
+        func.coalesce(func.substr(Issue.description, 1, 101), "").label("description"),
         Issue.created_at,
         Issue.image_path,
         Issue.status,
