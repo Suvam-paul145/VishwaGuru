@@ -52,6 +52,8 @@ async def create_issue(
     db: Session = Depends(get_db)
 ):
     image_path = None
+    linked_issue_id = None
+    deduplication_info = None
 
     # Check upload limits if image is being uploaded
     if image:
@@ -87,9 +89,6 @@ async def create_issue(
         raise HTTPException(status_code=500, detail="Internal server error")
 
     # Spatial deduplication check
-    deduplication_info = None
-    linked_issue_id = None
-
     if latitude is not None and longitude is not None:
         try:
             # Find existing open issues within 50 meters
