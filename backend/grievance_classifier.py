@@ -1,4 +1,8 @@
-import joblib
+try:
+    import joblib
+    HAS_JOBLIB = True
+except ImportError:
+    HAS_JOBLIB = False
 import os
 import logging
 
@@ -12,6 +16,10 @@ class GrievanceClassifier:
         self._initialized = False
 
     def load_model(self):
+        if not HAS_JOBLIB:
+            logger.warning("joblib not available. Cannot load grievance model.")
+            return
+
         if os.path.exists(MODEL_PATH):
             try:
                 self.model = joblib.load(MODEL_PATH)

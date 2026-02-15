@@ -3,8 +3,13 @@ Spatial utilities for geospatial operations and deduplication.
 """
 import math
 from typing import List, Tuple, Optional
-from sklearn.cluster import DBSCAN
-import numpy as np
+
+try:
+    from sklearn.cluster import DBSCAN
+    import numpy as np
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
 
 from backend.models import Issue
 
@@ -106,6 +111,9 @@ def cluster_issues_dbscan(issues: List[Issue], eps_meters: float = 30.0) -> List
     Returns:
         List of clusters, where each cluster is a list of Issue objects
     """
+    if not HAS_SKLEARN:
+        return [[issue] for issue in issues] # Fallback: each issue is its own cluster
+
     # Filter issues with valid coordinates
     valid_issues = [
         issue for issue in issues
