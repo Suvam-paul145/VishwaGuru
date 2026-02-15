@@ -96,10 +96,11 @@ async def create_issue(
             min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, 50.0)
 
             # Performance Boost: Use column projection to avoid loading full model instances
+            # Optimization: Use substr to truncate description at DB level
             open_issues = await run_in_threadpool(
                 lambda: db.query(
                     Issue.id,
-                    Issue.description,
+                    func.substr(Issue.description, 1, 101).label("description"),
                     Issue.category,
                     Issue.latitude,
                     Issue.longitude,
@@ -124,7 +125,7 @@ async def create_issue(
                 nearby_responses = [
                     NearbyIssueResponse(
                         id=issue.id,
-                        description=issue.description[:100] + "..." if len(issue.description) > 100 else issue.description,
+                        description=issue.description + "..." if issue.description and len(issue.description) > 100 else (issue.description or ""),
                         category=issue.category,
                         latitude=issue.latitude,
                         longitude=issue.longitude,
@@ -307,9 +308,10 @@ def get_nearby_issues(
         min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, radius)
 
         # Performance Boost: Use column projection to avoid loading full model instances
+    # Optimization: Use substr to truncate description at DB level
         open_issues = db.query(
             Issue.id,
-            Issue.description,
+        func.substr(Issue.description, 1, 101).label("description"),
             Issue.category,
             Issue.latitude,
             Issue.longitude,
@@ -332,7 +334,7 @@ def get_nearby_issues(
         nearby_responses = [
             NearbyIssueResponse(
                 id=issue.id,
-                description=issue.description[:100] + "..." if len(issue.description) > 100 else issue.description,
+                description=issue.description + "..." if issue.description and len(issue.description) > 100 else (issue.description or ""),
                 category=issue.category,
                 latitude=issue.latitude,
                 longitude=issue.longitude,
@@ -578,7 +580,7 @@ def get_user_issues(
     results = db.query(
         Issue.id,
         Issue.category,
-        Issue.description,
+        func.substr(Issue.description, 1, 101).label("description"),
         Issue.created_at,
         Issue.image_path,
         Issue.status,
@@ -594,7 +596,7 @@ def get_user_issues(
     data = []
     for row in results:
         desc = row.description or ""
-        short_desc = desc[:100] + "..." if len(desc) > 100 else desc
+        short_desc = desc + "..." if len(desc) > 100 else desc
 
         data.append({
             "id": row.id,
@@ -673,10 +675,11 @@ def get_recent_issues(
 
     # Fetch issues with pagination
     # Optimized: Use column projection to fetch only needed fields
+    # Optimization: Use substr to truncate description at DB level
     results = db.query(
         Issue.id,
         Issue.category,
-        Issue.description,
+        func.substr(Issue.description, 1, 101).label("description"),
         Issue.created_at,
         Issue.image_path,
         Issue.status,
@@ -691,7 +694,7 @@ def get_recent_issues(
     for row in results:
         # Manually construct dict from named tuple row to avoid full object overhead
         desc = row.description or ""
-        short_desc = desc[:100] + "..." if len(desc) > 100 else desc
+        short_desc = desc + "..." if len(desc) > 100 else desc
 
         data.append({
             "id": row.id,

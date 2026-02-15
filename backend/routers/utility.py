@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 from datetime import datetime, timezone
 import logging
 
@@ -45,8 +45,6 @@ def health():
             "ai_services": "initialized"
         }
     )
-
-from sqlalchemy import case
 
 @router.get("/api/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db)):
