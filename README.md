@@ -1,8 +1,21 @@
 # 🌍 VishwaGuru
 
-VishwaGuru is an AI-powered platform designed to help users analyze civic issues and generate actionable solutions using modern web technologies and AI models.
+<div align="center">
 
----
+![GitHub stars](https://img.shields.io/github/stars/Ewocs/VishwaGuru?style=social)
+![GitHub forks](https://img.shields.io/github/forks/Ewocs/VishwaGuru?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/Ewocs/VishwaGuru?style=social)
+
+![GitHub issues](https://img.shields.io/github/issues/Ewocs/VishwaGuru)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/Ewocs/VishwaGuru)
+![GitHub last commit](https://img.shields.io/github/last-commit/Ewocs/VishwaGuru)
+![GitHub code size](https://img.shields.io/github/languages/code-size/Ewocs/VishwaGuru)
+![GitHub contributors](https://img.shields.io/github/contributors/Ewocs/VishwaGuru)
+
+</div>
+
+**VishwaGuru is an AI-powered platform designed to help users analyze civic issues and generate actionable solutions using modern web technologies and AI models.**
+
 
 ## ✨ Features
 
