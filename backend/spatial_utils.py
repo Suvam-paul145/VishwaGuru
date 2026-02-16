@@ -3,8 +3,12 @@ Spatial utilities for geospatial operations and deduplication.
 """
 import math
 from typing import List, Tuple, Optional
-from sklearn.cluster import DBSCAN
-import numpy as np
+try:
+    from sklearn.cluster import DBSCAN
+    import numpy as np
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
 
 from backend.models import Issue
 
@@ -97,6 +101,7 @@ def find_nearby_issues(
 def cluster_issues_dbscan(issues: List[Issue], eps_meters: float = 30.0) -> List[List[Issue]]:
     """
     Cluster issues using DBSCAN algorithm based on spatial proximity.
+    Falls back to single-issue clusters if scikit-learn is unavailable.
 
     Args:
         issues: List of Issue objects with latitude/longitude
@@ -115,14 +120,16 @@ def cluster_issues_dbscan(issues: List[Issue], eps_meters: float = 30.0) -> List
     if not valid_issues:
         return []
 
+    if not HAS_SKLEARN:
+        # Fallback: each issue is its own cluster
+        return [[issue] for issue in valid_issues]
+
     # Convert to numpy array for DBSCAN
     coordinates = np.array([
         [issue.latitude, issue.longitude] for issue in valid_issues
     ])
 
     # Convert eps from meters to degrees (approximate)
-    # 1 degree latitude ≈ 111,000 meters
-    # 1 degree longitude ≈ 111,000 * cos(latitude) meters
     eps_degrees = eps_meters / 111000  # Rough approximation
 
     # Perform DBSCAN clustering
