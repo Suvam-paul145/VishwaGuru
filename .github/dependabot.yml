@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Maintain pip dependencies for the Python backend
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+
+  # Maintain npm dependencies for the React frontend
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      react-frontend:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "vite"
+
+  # Keep GitHub Actions workflows up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
