@@ -14,7 +14,7 @@ Your API keys and credentials have been securely added to the `.env` file, which
 |---------|---------------|--------|
 | **Jules AI** | `JULES_API_KEY` | ✅ Configured (Pro) |
 | **Hugging Face** | `HF_TOKEN` | ✅ Configured |
-| **Google Gemini** | `GEMINI_API_KEY` | ⚠️ Needs update |
+| **Google Gemini** | `GEMINI_API_KEY` | ✅ Configured |
 | **Telegram Bot** | `TELEGRAM_BOT_TOKEN` | ⚠️ Needs update |
 
 ### 🌐 **Deployment Services**
@@ -22,6 +22,12 @@ Your API keys and credentials have been securely added to the `.env` file, which
 | Service | Variable Name | Status |
 |---------|---------------|--------|
 | **Render** | `RENDER_API_KEY` | ✅ Configured |
+
+### 🗺️ **Maps & Geolocation**
+
+| Service | Variable Name | Status |
+|---------|---------------|--------|
+| **MapmyIndia (MAPPLS)** | `VITE_MAPPLS_API_KEY` | ✅ Configured |
 
 ### 💾 **Database Services**
 
@@ -68,6 +74,35 @@ git check-ignore -v .env
   - ⚡ Reduced human interaction during development
 - **Scope**: Development environment
 - **Pro Benefits**: Enhanced AI models, faster responses, priority access
+
+### **Google Gemini API Key** (`GEMINI_API_KEY`)
+- **Purpose**: AI-powered image analysis and intelligent categorization
+- **Used in**: Backend ML inference, report analysis
+- **Features**:
+  - 🖼️ Analyze civic issue images (pothole severity, garbage types)
+  - 🏷️ Auto-categorize reports intelligently
+  - 📝 Generate report summaries
+  - 🔍 Extract text from images (OCR)
+  - 💬 Multimodal understanding (text + image)
+- **Scope**: Backend API calls
+- **Documentation**: [Gemini API Docs](https://ai.google.dev/docs)
+
+### **MapmyIndia (MAPPLS) API Key** (`VITE_MAPPLS_API_KEY`)
+- **Purpose**: India's premier mapping and geolocation platform
+- **Used in**: Frontend map components, location services
+- **Features**:
+  - 🗺️ Interactive maps with India-specific data
+  - 📍 Precise geocoding and reverse geocoding
+  - 🛣️ Road network and navigation
+  - 🏛️ POI (Points of Interest) data
+  - 🌍 Better coverage for Indian cities than Google Maps
+- **Scope**: Frontend (VITE_ prefix makes it client-safe)
+- **Documentation**: [MAPPLS API Docs](https://apis.mappls.com/docs)
+- **Advantages**: 
+  - More accurate Indian addresses
+  - Government-approved mapping data
+  - Better local landmark recognition
+  - Compliance with Indian regulations
 
 ### **Render API Key** (`RENDER_API_KEY`)
 - **Purpose**: Automated deployments, service management
@@ -198,12 +233,13 @@ cat .env.example
 - [x] Jules AI key configured (Pro subscription)
 - [x] Hugging Face token configured
 - [x] Render API key configured
+- [x] Google Gemini API key configured
+- [x] MapmyIndia (MAPPLS) API key configured
 - [x] Supabase URL configured
 - [x] Supabase Anon Key configured
 - [x] All secrets in `.env` (gitignored)
 - [x] Template in `.env.example` (safe to commit)
-- [ ] Telegram Bot token (update when ready)
-- [ ] Google Gemini API key (update when ready)
+- [ ] Telegram Bot token (add when ready)
 
 ---
 
