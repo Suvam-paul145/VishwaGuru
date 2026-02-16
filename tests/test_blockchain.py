@@ -22,27 +22,33 @@ def client(db_session):
     app.dependency_overrides = {}
 
 def test_blockchain_verification_success(client, db_session):
-    # Create first issue
-    hash1_content = "First issue|Road|"
+    # Create first issue with new hash format and previous_integrity_hash
+    ref1 = "ref1"
+    hash1_content = f"{ref1}|First issue|Road|None|None|None|"
     hash1 = hashlib.sha256(hash1_content.encode()).hexdigest()
 
     issue1 = Issue(
+        reference_id=ref1,
         description="First issue",
         category="Road",
-        integrity_hash=hash1
+        integrity_hash=hash1,
+        previous_integrity_hash=""
     )
     db_session.add(issue1)
     db_session.commit()
     db_session.refresh(issue1)
 
     # Create second issue chained to first
-    hash2_content = f"Second issue|Garbage|{hash1}"
+    ref2 = "ref2"
+    hash2_content = f"{ref2}|Second issue|Garbage|None|None|None|{hash1}"
     hash2 = hashlib.sha256(hash2_content.encode()).hexdigest()
 
     issue2 = Issue(
+        reference_id=ref2,
         description="Second issue",
         category="Garbage",
-        integrity_hash=hash2
+        integrity_hash=hash2,
+        previous_integrity_hash=hash1
     )
     db_session.add(issue2)
     db_session.commit()
@@ -65,9 +71,11 @@ def test_blockchain_verification_success(client, db_session):
 def test_blockchain_verification_failure(client, db_session):
     # Create issue with tampered hash
     issue = Issue(
+        reference_id="ref3",
         description="Tampered issue",
         category="Road",
-        integrity_hash="invalidhash"
+        integrity_hash="invalidhash",
+        previous_integrity_hash=""
     )
     db_session.add(issue)
     db_session.commit()
