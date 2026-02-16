@@ -2,10 +2,6 @@ import { apiClient } from './client';
 import { fakeRecentIssues } from '../fakeData';
 
 export const issuesApi = {
-  get: async (id) => {
-    return await apiClient.get(`/api/issues/${id}`);
-  },
-
   getRecent: async (limit = 10, offset = 0) => {
     try {
       return await apiClient.get('/api/issues/recent', {

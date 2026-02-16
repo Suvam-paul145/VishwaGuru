@@ -1,10 +1,12 @@
 import React, { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { fakeRecentIssues, fakeResponsibilityMap } from './fakeData';
 import { issuesApi, miscApi } from './api';
 import AppHeader from './components/AppHeader';
 import FloatingButtonsManager from './components/FloatingButtonsManager';
 import LoadingSpinner from './components/LoadingSpinner';
+import { DarkModeProvider, useDarkMode } from './contexts/DarkModeContext';
 
 // Lazy Load Views
 const Landing = React.lazy(() => import('./views/Landing'));
@@ -16,7 +18,6 @@ const MaharashtraRepView = React.lazy(() => import('./views/MaharashtraRepView')
 const VerifyView = React.lazy(() => import('./views/VerifyView'));
 const StatsView = React.lazy(() => import('./views/StatsView'));
 const LeaderboardView = React.lazy(() => import('./views/LeaderboardView'));
-const TrackView = React.lazy(() => import('./views/TrackView'));
 const GrievanceView = React.lazy(() => import('./views/GrievanceView'));
 const NotFound = React.lazy(() => import('./views/NotFound'));
 
@@ -48,8 +49,10 @@ import AdminDashboard from './views/AdminDashboard';
 
 // Create a wrapper component to handle state management
 function AppContent() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDarkMode } = useDarkMode();
   const [responsibilityMap, setResponsibilityMap] = useState(null);
   const [actionPlan, setActionPlan] = useState(null);
   const [maharashtraRepInfo, setMaharashtraRepInfo] = useState(null);
@@ -153,7 +156,7 @@ function AppContent() {
   if (isLandingPage) {
     return (
       <Suspense fallback={
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-950 dark:to-blue-950 transition-colors duration-300">
           <LoadingSpinner size="xl" variant="primary" />
         </div>
       }>
@@ -164,17 +167,18 @@ function AppContent() {
 
   // Otherwise render the main app layout
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 text-gray-900 font-sans overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 dark:from-gray-950 dark:via-blue-950/30 dark:to-gray-900 text-gray-900 dark:text-gray-100 font-sans overflow-hidden transition-colors duration-300">
       {/* Animated background elements */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-300/10 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-300/10 rounded-full blur-3xl animate-pulse-slow animation-delay-1000"></div>
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-300/10 dark:bg-orange-300/5 rounded-full blur-3xl animate-pulse-slow transition-colors duration-300"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-300/10 dark:bg-blue-300/5 rounded-full blur-3xl animate-pulse-slow animation-delay-1000 transition-colors duration-300"></div>
       </div>
 
       <FloatingButtonsManager setView={navigateToView} />
 
       <div className="relative z-10">
         <AppHeader />
+
 
         <Suspense fallback={
           <div className="flex justify-center my-8">
@@ -195,17 +199,6 @@ function AppContent() {
 
             <Route
               path="/"
-              element={
-                <Home
-                  setView={navigateToView}
-                  fetchResponsibilityMap={fetchResponsibilityMap}
-                  recentIssues={recentIssues}
-                  handleUpvote={handleUpvote}
-                />
-              }
-            />
-            <Route
-              path="/home"
               element={
                 <Home
                   setView={navigateToView}
@@ -262,7 +255,6 @@ function AppContent() {
               }
             />
             <Route path="/verify/:id" element={<VerifyView />} />
-            <Route path="/track" element={<TrackView />} />
             <Route path="/pothole" element={<PotholeDetector onBack={() => navigate('/')} />} />
             <Route path="/garbage" element={<GarbageDetector onBack={() => navigate('/')} />} />
             <Route
@@ -270,7 +262,7 @@ function AppContent() {
               element={
                 <div className="flex flex-col h-full">
                   <button onClick={() => navigate('/')} className="self-start text-blue-600 mb-2">
-                    &larr; Back
+                    &larr; {t('common.back')}
                   </button>
                   <VandalismDetector />
                 </div>
@@ -281,7 +273,7 @@ function AppContent() {
               element={
                 <div className="flex flex-col h-full">
                   <button onClick={() => navigate('/')} className="self-start text-blue-600 mb-2">
-                    &larr; Back
+                    &larr; {t('common.back')}
                   </button>
                   <FloodDetector />
                 </div>
@@ -304,7 +296,7 @@ function AppContent() {
             <Route path="/safety-check" element={
               <div className="flex flex-col h-full p-4">
                 <button onClick={() => navigate('/')} className="self-start text-blue-600 mb-2 font-bold">
-                  &larr; Back
+                  &larr; {t('common.back')}
                 </button>
                 <CivicEyeDetector onBack={() => navigate('/')} />
               </div>
@@ -327,9 +319,11 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <DarkModeProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </DarkModeProvider>
     </Router>
   );
 }
