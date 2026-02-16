@@ -99,7 +99,21 @@ VishwaGuru follows a modern client-server architecture:
 
 ---
 
+## 🔗 Quick Links
+
+<div align="center">
+
+| 📚 Documentation | 🤝 Contributing | 🔒 Security | 📋 Guidelines |
+|:----------------:|:---------------:|:-----------:|:-------------:|
+| [Architecture](ARCHITECTURE.md) | [Contributing Guide](CONTRIBUTING.md) | [Security Policy](SECURITY.md) | [Issue Labels](ISSUE_LABELS_GUIDE.md) |
+| [Deployment](DEPLOYMENT_GUIDE.md) | [Code of Conduct](CODE_OF_CONDUCT.md) | [Changelog](CHANGELOG.md) | [Quick Reference](QUICK_REFERENCE.md) |
+
+</div>
+
+---
+
 ## 📚 Documentation
+
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed system design
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Step-by-step deployment instructions
