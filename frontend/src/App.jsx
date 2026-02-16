@@ -63,7 +63,7 @@ function AppContent() {
   const navigateToView = useCallback((view) => {
     const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'noise', 'safety-check', 'my-reports', 'login', 'signup'];
     if (validViews.includes(view)) {
-      navigate(view === 'home' ? '/' : `/${view}`);
+      navigate(`/${view}`);
     } else {
       console.warn(`Attempted to navigate to invalid view: ${view}`);
       navigate('/');
@@ -194,6 +194,17 @@ function AppContent() {
 
             <Route
               path="/"
+              element={
+                <Home
+                  setView={navigateToView}
+                  fetchResponsibilityMap={fetchResponsibilityMap}
+                  recentIssues={recentIssues}
+                  handleUpvote={handleUpvote}
+                />
+              }
+            />
+            <Route
+              path="/home"
               element={
                 <Home
                   setView={navigateToView}
