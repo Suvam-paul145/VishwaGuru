@@ -17,7 +17,7 @@ from backend.schemas import (
     IssueCreateWithDeduplicationResponse, IssueCategory, NearbyIssueResponse,
     DeduplicationCheckResponse, IssueSummaryResponse, VoteResponse,
     IssueStatusUpdateRequest, IssueStatusUpdateResponse, PushSubscriptionRequest,
-    PushSubscriptionResponse, BlockchainVerificationResponse
+    PushSubscriptionResponse, BlockchainVerificationResponse, IssueResponse
 )
 from backend.utils import (
     check_upload_limits, validate_uploaded_file, save_file_blocking, save_issue_db,
@@ -246,6 +246,17 @@ async def create_issue(
             deduplication_info=deduplication_info,
             linked_issue_id=linked_issue_id
         )
+
+@router.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue_details(issue_id: int, db: Session = Depends(get_db)):
+    """
+    Get detailed information about a specific issue.
+    """
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    return issue
+
 
 @router.post("/api/issues/{issue_id}/vote", response_model=VoteResponse)
 async def upvote_issue(issue_id: int, db: Session = Depends(get_db)):

@@ -16,6 +16,7 @@ const MaharashtraRepView = React.lazy(() => import('./views/MaharashtraRepView')
 const VerifyView = React.lazy(() => import('./views/VerifyView'));
 const StatsView = React.lazy(() => import('./views/StatsView'));
 const LeaderboardView = React.lazy(() => import('./views/LeaderboardView'));
+const TrackView = React.lazy(() => import('./views/TrackView'));
 const GrievanceView = React.lazy(() => import('./views/GrievanceView'));
 const NotFound = React.lazy(() => import('./views/NotFound'));
 
@@ -204,6 +205,17 @@ function AppContent() {
               }
             />
             <Route
+              path="/home"
+              element={
+                <Home
+                  setView={navigateToView}
+                  fetchResponsibilityMap={fetchResponsibilityMap}
+                  recentIssues={recentIssues}
+                  handleUpvote={handleUpvote}
+                />
+              }
+            />
+            <Route
               path="/map"
               element={
                 <ProtectedRoute>
@@ -250,6 +262,7 @@ function AppContent() {
               }
             />
             <Route path="/verify/:id" element={<VerifyView />} />
+            <Route path="/track" element={<TrackView />} />
             <Route path="/pothole" element={<PotholeDetector onBack={() => navigate('/')} />} />
             <Route path="/garbage" element={<GarbageDetector onBack={() => navigate('/')} />} />
             <Route
