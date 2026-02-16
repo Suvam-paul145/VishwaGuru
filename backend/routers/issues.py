@@ -29,7 +29,7 @@ from backend.tasks import (
     send_status_notification
 )
 from backend.spatial_utils import get_bounding_box, find_nearby_issues
-from backend.cache import recent_issues_cache, nearby_issues_cache
+from backend.cache import recent_issues_cache, nearby_issues_cache, issue_details_cache
 from backend.hf_api_service import verify_resolution_vqa
 from backend.dependencies import get_http_client
 
@@ -165,19 +165,19 @@ async def create_issue(
             # Continue with issue creation if deduplication fails
 
     try:
-        # Save to DB only if no nearby issues found or deduplication failed
+        # Fetch previous issue's integrity hash for blockchain chaining
+        # Optimization: Fetch only the last hash to maintain the chain with minimal overhead
+        prev_issue = await run_in_threadpool(
+            lambda: db.query(Issue.integrity_hash).order_by(Issue.id.desc()).first()
+        )
+        prev_hash = prev_issue[0] if prev_issue and prev_issue[0] else ""
+
+        # Simple but effective SHA-256 chaining
+        hash_content = f"{description}|{category}|{prev_hash}"
+        integrity_hash = hashlib.sha256(hash_content.encode()).hexdigest()
+
         if deduplication_info is None or not deduplication_info.has_nearby_issues:
-            # Blockchain feature: calculate integrity hash for the report
-            # Optimization: Fetch only the last hash to maintain the chain with minimal overhead
-            prev_issue = await run_in_threadpool(
-                lambda: db.query(Issue.integrity_hash).order_by(Issue.id.desc()).first()
-            )
-            prev_hash = prev_issue[0] if prev_issue and prev_issue[0] else ""
-
-            # Simple but effective SHA-256 chaining
-            hash_content = f"{description}|{category}|{prev_hash}"
-            integrity_hash = hashlib.sha256(hash_content.encode()).hexdigest()
-
+            # Create new unique issue
             new_issue = Issue(
                 reference_id=str(uuid.uuid4()),
                 description=description,
@@ -189,14 +189,31 @@ async def create_issue(
                 longitude=longitude,
                 location=location,
                 action_plan=None,
-                integrity_hash=integrity_hash
+                integrity_hash=integrity_hash,
+                previous_integrity_hash=prev_hash
+            )
+        else:
+            # Create duplicate issue for tracking but mark as duplicate
+            new_issue = Issue(
+                reference_id=str(uuid.uuid4()),
+                description=description,
+                category=category,
+                image_path=image_path,
+                source="web",
+                user_email=user_email,
+                latitude=latitude,
+                longitude=longitude,
+                location=location,
+                action_plan=None,
+                integrity_hash=integrity_hash,
+                previous_integrity_hash=prev_hash,
+                status="duplicate",
+                parent_issue_id=linked_issue_id
             )
 
-            # Offload blocking DB operations to threadpool
-            await run_in_threadpool(save_issue_db, db, new_issue)
-        else:
-            # Don't create new issue, just return deduplication info
-            new_issue = None
+        # Offload blocking DB operations to threadpool
+        await run_in_threadpool(save_issue_db, db, new_issue)
+
     except Exception as e:
         # Clean up uploaded file if DB save failed
         if image_path and os.path.exists(image_path):
@@ -208,8 +225,8 @@ async def create_issue(
         logger.error(f"Database error while creating issue: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to save issue to database")
 
-    # Add background task for AI generation only if new issue was created
-    if new_issue:
+    # Add background task for AI generation only if new issue was created (not duplicate)
+    if new_issue and new_issue.status != "duplicate":
         background_tasks.add_task(process_action_plan_background, new_issue.id, description, category, language, image_path)
 
         # Create grievance for escalation management
@@ -218,6 +235,7 @@ async def create_issue(
         # Invalidate cache so new issue appears
         try:
             recent_issues_cache.clear()
+            nearby_issues_cache.clear()
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")
 
@@ -230,7 +248,7 @@ async def create_issue(
         )
 
     # Return response with deduplication information
-    if new_issue:
+    if new_issue and new_issue.status != "duplicate":
         return IssueCreateWithDeduplicationResponse(
             id=new_issue.id,
             message="Issue reported successfully. Action plan will be generated shortly.",
@@ -239,6 +257,8 @@ async def create_issue(
             linked_issue_id=linked_issue_id
         )
     else:
+        # For duplicates, we still return id=None to frontend as per contract,
+        # but we've saved the record for analytics/blockchain integrity.
         return IssueCreateWithDeduplicationResponse(
             id=None,
             message="Similar issue found nearby. Your report has been linked to the existing issue to increase its priority.",
@@ -246,6 +266,53 @@ async def create_issue(
             deduplication_info=deduplication_info,
             linked_issue_id=linked_issue_id
         )
+
+@router.get("/api/issues/{issue_id}", response_model=IssueSummaryResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    """
+    Get issue details by ID.
+    Optimized: Uses thread-safe caching.
+    """
+    # Check cache first
+    cached_data = issue_details_cache.get(f"issue_{issue_id}")
+    if cached_data:
+        return cached_data
+
+    # Fetch issue with column projection for performance
+    issue = db.query(
+        Issue.id,
+        Issue.category,
+        Issue.description,
+        Issue.created_at,
+        Issue.image_path,
+        Issue.status,
+        Issue.upvotes,
+        Issue.location,
+        Issue.latitude,
+        Issue.longitude
+    ).filter(Issue.id == issue_id).first()
+
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    # Construct response
+    response_data = {
+        "id": issue.id,
+        "category": issue.category,
+        "description": issue.description,
+        "created_at": issue.created_at,
+        "image_path": issue.image_path,
+        "status": issue.status,
+        "upvotes": issue.upvotes or 0,
+        "location": issue.location,
+        "latitude": issue.latitude,
+        "longitude": issue.longitude
+    }
+
+    # Update cache
+    issue_details_cache.set(response_data, f"issue_{issue_id}")
+
+    return response_data
 
 @router.post("/api/issues/{issue_id}/vote", response_model=VoteResponse)
 async def upvote_issue(issue_id: int, db: Session = Depends(get_db)):
@@ -264,6 +331,9 @@ async def upvote_issue(issue_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Issue not found")
 
     await run_in_threadpool(db.commit)
+
+    # Invalidate cache
+    issue_details_cache.invalidate(f"issue_{issue_id}")
 
     # Fetch only the updated upvote count using column projection
     new_upvotes = await run_in_threadpool(
@@ -413,6 +483,10 @@ async def verify_issue_endpoint(
                     )
                     await run_in_threadpool(db.commit)
 
+            # Invalidate cache if resolved
+            if is_resolved:
+                issue_details_cache.invalidate(f"issue_{issue_id}")
+
             return {
                 "is_resolved": is_resolved,
                 "ai_answer": answer,
@@ -456,7 +530,10 @@ async def verify_issue_endpoint(
         # Final commit for all changes in the transaction
         await run_in_threadpool(db.commit)
 
-        return VoteResponse(
+    # Invalidate cache
+    issue_details_cache.invalidate(f"issue_{issue_id}")
+
+    return VoteResponse(
             id=issue_id,
             upvotes=final_upvotes,
             message="Issue verified successfully"
@@ -505,6 +582,9 @@ def update_issue_status(
 
     db.commit()
     db.refresh(issue)
+
+    # Invalidate cache
+    issue_details_cache.invalidate(f"issue_{issue.id}")
 
     # Send notification to citizen
     background_tasks.add_task(send_status_notification, issue.id, old_status, request.status.value, request.notes)
@@ -610,22 +690,26 @@ async def verify_blockchain_integrity(issue_id: int, db: Session = Depends(get_d
     Verify the cryptographic integrity of a report using the blockchain-style chaining.
     Optimized: Uses column projection to fetch only needed data.
     """
-    # Fetch current issue data
+    # Fetch current issue data including stored previous hash
     current_issue = await run_in_threadpool(
         lambda: db.query(
-            Issue.id, Issue.description, Issue.category, Issue.integrity_hash
+            Issue.id, Issue.description, Issue.category, Issue.integrity_hash, Issue.previous_integrity_hash
         ).filter(Issue.id == issue_id).first()
     )
 
     if not current_issue:
         raise HTTPException(status_code=404, detail="Issue not found")
 
-    # Fetch previous issue's integrity hash to verify the chain
-    prev_issue_hash = await run_in_threadpool(
-        lambda: db.query(Issue.integrity_hash).filter(Issue.id < issue_id).order_by(Issue.id.desc()).first()
-    )
+    # Use stored previous hash for verification (O(1) lookup)
+    prev_hash = current_issue.previous_integrity_hash
 
-    prev_hash = prev_issue_hash[0] if prev_issue_hash and prev_issue_hash[0] else ""
+    # Fallback for legacy data (if previous_integrity_hash is NULL)
+    if prev_hash is None:
+        # Fetch previous issue's integrity hash to verify the chain (legacy method)
+        prev_issue_hash = await run_in_threadpool(
+            lambda: db.query(Issue.integrity_hash).filter(Issue.id < issue_id).order_by(Issue.id.desc()).first()
+        )
+        prev_hash = prev_issue_hash[0] if prev_issue_hash and prev_issue_hash[0] else ""
 
     # Recompute hash based on current data and previous hash
     # Chaining logic: hash(description|category|prev_hash)
