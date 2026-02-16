@@ -1,6 +1,8 @@
 import sys
 import os
 from pathlib import Path
+from sqlalchemy import text
+import logging
 
 # Add project root to path
 current_file = Path(__file__).resolve()
@@ -11,18 +13,12 @@ sys.path.insert(0, str(repo_root))
 from backend.database import engine, Base
 from backend.models import *
 
+logger = logging.getLogger(__name__)
+
 def init_db():
     print("Creating tables...")
     Base.metadata.create_all(bind=engine)
     print("Tables created.")
-
-if __name__ == "__main__":
-    init_db()
-from sqlalchemy import text
-from backend.database import engine
-import logging
-
-logger = logging.getLogger(__name__)
 
 def migrate_db():
     """
@@ -124,6 +120,13 @@ def migrate_db():
             except Exception:
                 pass
 
+            # Add previous_integrity_hash column for O(1) blockchain verification
+            try:
+                conn.execute(text("ALTER TABLE issues ADD COLUMN previous_integrity_hash VARCHAR"))
+                print("Migrated database: Added previous_integrity_hash column.")
+            except Exception:
+                pass
+
             # Add index on user_email
             try:
                 conn.execute(text("CREATE INDEX ix_issues_user_email ON issues (user_email)"))
@@ -157,12 +160,14 @@ def migrate_db():
             # Add index on latitude (grievances)
             try:
                 conn.execute(text("CREATE INDEX ix_grievances_latitude ON grievances (latitude)"))
+                logger.info("Migrated database: Added index on latitude column for grievances.")
             except Exception:
                 pass
 
             # Add index on longitude (grievances)
             try:
                 conn.execute(text("CREATE INDEX ix_grievances_longitude ON grievances (longitude)"))
+                logger.info("Migrated database: Added index on longitude column for grievances.")
             except Exception:
                 pass
 
@@ -212,3 +217,7 @@ def migrate_db():
             logger.info("Database migration check completed.")
     except Exception as e:
         logger.error(f"Database migration error: {e}")
+
+if __name__ == "__main__":
+    init_db()
+    migrate_db()

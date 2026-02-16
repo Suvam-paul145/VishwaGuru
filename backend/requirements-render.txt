@@ -10,8 +10,12 @@ huggingface-hub
 httpx
 pywebpush
 Pillow
+numpy
+scikit-learn
 firebase-functions
 firebase-admin
 a2wsgi
-python-jose[cryptography]
-passlib[bcrypt]
+python-jose
+cryptography
+passlib
+bcrypt
