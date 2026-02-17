@@ -180,7 +180,10 @@ async def create_issue(
 
             # 3. Calculate robust integrity hash incorporating multiple fields
             # Chaining logic: hash(ref_id|desc|cat|lat|lon|email|prev_hash)
-            hash_content = f"{reference_id}|{description}|{category}|{latitude}|{longitude}|{user_email}|{prev_hash}"
+            # Use fixed float formatting to ensure consistent hashing across environments
+            lat_str = f"{latitude:.7f}" if latitude is not None else "None"
+            lon_str = f"{longitude:.7f}" if longitude is not None else "None"
+            hash_content = f"{reference_id}|{description}|{category}|{lat_str}|{lon_str}|{user_email}|{prev_hash}"
             integrity_hash = hashlib.sha256(hash_content.encode()).hexdigest()
 
             # RAG Retrieval (New)
@@ -644,8 +647,10 @@ async def verify_blockchain_integrity(issue_id: int, db: Session = Depends(get_d
     # Optimized: Use stored previous hash if available, otherwise fallback to subquery (O(N) search)
     if current_issue.previous_integrity_hash is not None:
         prev_hash = current_issue.previous_integrity_hash
-        # New robust hash formula
-        hash_content = f"{current_issue.reference_id}|{current_issue.description}|{current_issue.category}|{current_issue.latitude}|{current_issue.longitude}|{current_issue.user_email}|{prev_hash}"
+        # New robust hash formula with fixed float formatting
+        lat_str = f"{current_issue.latitude:.7f}" if current_issue.latitude is not None else "None"
+        lon_str = f"{current_issue.longitude:.7f}" if current_issue.longitude is not None else "None"
+        hash_content = f"{current_issue.reference_id}|{current_issue.description}|{current_issue.category}|{lat_str}|{lon_str}|{current_issue.user_email}|{prev_hash}"
     else:
         # Legacy fallback: Fetch previous issue's hash via subquery
         prev_issue_hash = await run_in_threadpool(
