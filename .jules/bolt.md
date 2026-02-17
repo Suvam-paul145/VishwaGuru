@@ -37,7 +37,3 @@
 ## 2026-02-08 - Return Type Consistency in Utilities
 **Learning:** Inconsistent return types in shared utility functions (like `process_uploaded_image`) can cause runtime crashes across multiple modules, especially when some expect tuples and others expect single values. This can lead to deployment failures that are hard to debug without full integration logs.
 **Action:** Always maintain strict return type consistency for core utilities. Use type hints and verify all call sites when changing a function's signature. Ensure that performance-oriented optimizations (like returning multiple processed formats) are applied uniformly.
-
-## 2026-02-09 - CLIP Payload Optimization
-**Learning:** Sending raw, potentially large (e.g., 20MB) images to CLIP inference services significantly increases latency, bandwidth usage, and risk of timeouts. Most CLIP models operate on small inputs (~224-336px).
-**Action:** Always validate, resize, and process images (e.g., via `process_uploaded_image`) before sending them to inference APIs. This reduces payload size by ~99% and ensures only valid images are processed.

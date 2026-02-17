@@ -26,7 +26,11 @@ if not api_key:
     if os.environ.get("ENVIRONMENT") == "production":
          logger.warning("GEMINI_API_KEY not set in production environment!")
 
-genai.configure(api_key=api_key)
+try:
+    genai.configure(api_key=api_key)
+except Exception as e:
+    logger.error(f"Failed to configure Gemini AI: {e}")
+    # Allow startup to proceed, but AI features will fail later
 
 RESPONSIBILITY_MAP_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "responsibility_map.json")
 
