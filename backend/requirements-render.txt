@@ -17,3 +17,5 @@ python-jose
 cryptography
 passlib
 bcrypt
+numpy
+scikit-learn
