@@ -21,7 +21,7 @@ HAS_MAGIC = False
 try:
     import magic
     HAS_MAGIC = True
-except ImportError:
+except (ImportError, Exception):  # Catch OSError (libmagic missing) and other startup errors
     HAS_MAGIC = False
 
 logger = logging.getLogger(__name__)
