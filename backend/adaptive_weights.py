@@ -6,6 +6,12 @@ from typing import Dict, List, Tuple, Any
 
 logger = logging.getLogger(__name__)
 
+# Constants
+# Get the repository root directory (assuming this file is in backend/adaptive_weights.py)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+DEFAULT_WEIGHTS_PATH = os.path.join(DATA_DIR, "modelWeights.json")
+
 DEFAULT_SEVERITY_KEYWORDS = {
     "critical": [
         "fire", "explosion", "blood", "death", "collapse", "gas leak",
@@ -102,7 +108,7 @@ class AdaptiveWeights:
     Automatically reloads if the file changes.
     """
 
-    def __init__(self, data_path: str = "backend/data/modelWeights.json"):
+    def __init__(self, data_path: str = DEFAULT_WEIGHTS_PATH):
         self.data_path = data_path
         self._severity_keywords = DEFAULT_SEVERITY_KEYWORDS.copy()
         self._urgency_patterns = DEFAULT_URGENCY_PATTERNS.copy()

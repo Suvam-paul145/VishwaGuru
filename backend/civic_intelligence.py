@@ -14,7 +14,11 @@ from backend.trend_analyzer import trend_analyzer
 
 logger = logging.getLogger(__name__)
 
-SNAPSHOT_DIR = "backend/data/dailySnapshots"
+# Use absolute path relative to repo root data directory
+# This file is in backend/civic_intelligence.py
+# Repo root is ../../
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SNAPSHOT_DIR = os.path.join(BASE_DIR, "data", "dailySnapshots")
 
 class CivicIntelligenceEngine:
     """
