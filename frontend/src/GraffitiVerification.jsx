@@ -12,13 +12,22 @@ const GraffitiVerification = ({ onBack }) => {
     const handleFile = async (file) => {
         if (!file) return;
 
-        const url = URL.createObjectURL(file);
-        setImage(url);
+        // Simple sanitization of filename (though createObjectURL handles blob securely)
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+
+        try {
+             const url = URL.createObjectURL(file);
+             setImage(url);
+        } catch (e) {
+             console.error("Error creating object URL", e);
+             return;
+        }
+
         setResult(null);
         setLoading(true);
 
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append('image', file, safeName);
 
         try {
             const res = await fetch(`${API_URL}/api/detect-cleanliness`, {
@@ -28,7 +37,10 @@ const GraffitiVerification = ({ onBack }) => {
             if (res.ok) {
                 const data = await res.json();
                 if (data.detections && data.detections.length > 0) {
-                    setResult(data.detections[0]);
+                    // Sanitize label just in case, though React escapes by default
+                    const rawLabel = data.detections[0].label || "unknown";
+                    const safeLabel = rawLabel.replace(/[<>]/g, '');
+                    setResult({ ...data.detections[0], label: safeLabel });
                 } else {
                     setResult({ label: "Unable to determine", confidence: 0 });
                 }
@@ -70,7 +82,11 @@ const GraffitiVerification = ({ onBack }) => {
                     capture="environment"
                     className="hidden"
                     ref={fileInputRef}
-                    onChange={(e) => handleFile(e.target.files[0])}
+                    onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                            handleFile(e.target.files[0]);
+                        }
+                    }}
                 />
 
                 {loading && (
