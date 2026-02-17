@@ -3,6 +3,20 @@ import { Camera, Upload, CheckCircle, XCircle, Loader2, Brush } from 'lucide-rea
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+// Safe label mapping to prevent XSS and ensure clean UI text
+const getSafeLabel = (rawLabel) => {
+    if (!rawLabel) return "Unknown Status";
+    const lower = rawLabel.toLowerCase();
+
+    if (lower.includes("clean")) return "Clean Wall";
+    if (lower.includes("freshly")) return "Freshly Painted";
+    if (lower.includes("graffiti")) return "Graffiti Detected";
+    if (lower.includes("vandalism")) return "Vandalism Detected";
+    if (lower.includes("dirty")) return "Dirty Wall";
+
+    return "Unknown Status";
+};
+
 const GraffitiVerification = ({ onBack }) => {
     const fileInputRef = useRef(null);
     const [image, setImage] = useState(null);
@@ -37,10 +51,10 @@ const GraffitiVerification = ({ onBack }) => {
             if (res.ok) {
                 const data = await res.json();
                 if (data.detections && data.detections.length > 0) {
-                    // Strictly sanitize: allow only alphanumeric, space, and simple punctuation
-                    const rawLabel = data.detections[0].label || "unknown";
-                    const safeLabel = rawLabel.replace(/[^a-zA-Z0-9\s-]/g, '');
-                    setResult({ ...data.detections[0], label: safeLabel });
+                    const detection = data.detections[0];
+                    // Map raw label to safe, hardcoded string
+                    const displayLabel = getSafeLabel(detection.label);
+                    setResult({ ...detection, label: displayLabel });
                 } else {
                     setResult({ label: "Unable to determine", confidence: 0 });
                 }
@@ -99,20 +113,21 @@ const GraffitiVerification = ({ onBack }) => {
 
             {result && !loading && (
                 <div className={`w-full mt-6 p-6 rounded-2xl shadow-sm border-l-8 flex items-start gap-4 ${
-                    result.label.includes('clean') || result.label.includes('freshly')
+                    result.label.includes('Clean') || result.label.includes('Freshly')
                         ? 'bg-green-50 border-green-500 text-green-800'
                         : 'bg-red-50 border-red-500 text-red-800'
                 }`}>
-                    {result.label.includes('clean') || result.label.includes('freshly') ? (
+                    {result.label.includes('Clean') || result.label.includes('Freshly') ? (
                         <CheckCircle className="shrink-0" size={24} />
                     ) : (
                         <XCircle className="shrink-0" size={24} />
                     )}
                     <div>
+                        {/* Label is safe because it comes from getSafeLabel which returns hardcoded strings */}
                         <h3 className="font-bold text-lg capitalize">{result.label}</h3>
                         <p className="opacity-80 text-sm mt-1">Confidence: {(result.confidence * 100).toFixed(1)}%</p>
                         <p className="text-xs mt-2 font-medium uppercase tracking-wide opacity-70">
-                            {result.label.includes('clean') ? 'Verification Passed' : 'Action Required'}
+                            {result.label.includes('Clean') || result.label.includes('Freshly') ? 'Verification Passed' : 'Action Required'}
                         </p>
                     </div>
                 </div>
