@@ -37,9 +37,9 @@ const GraffitiVerification = ({ onBack }) => {
             if (res.ok) {
                 const data = await res.json();
                 if (data.detections && data.detections.length > 0) {
-                    // Sanitize label just in case, though React escapes by default
+                    // Strictly sanitize: allow only alphanumeric, space, and simple punctuation
                     const rawLabel = data.detections[0].label || "unknown";
-                    const safeLabel = rawLabel.replace(/[<>]/g, '');
+                    const safeLabel = rawLabel.replace(/[^a-zA-Z0-9\s-]/g, '');
                     setResult({ ...data.detections[0], label: safeLabel });
                 } else {
                     setResult({ label: "Unable to determine", confidence: 0 });
