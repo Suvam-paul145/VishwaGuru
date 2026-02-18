@@ -118,31 +118,44 @@ class AdaptiveWeights:
 
     def _load_weights(self) -> Dict[str, Any]:
         """Load weights from file or initialize with defaults."""
+        # Always check mtime if file exists, regardless of result
         if os.path.exists(self.weights_file):
              self.last_mtime = os.path.getmtime(self.weights_file)
+
+        # Check if data directory exists, create if not
         if not os.path.exists(self.data_dir):
             try:
                 os.makedirs(self.data_dir, exist_ok=True)
             except OSError as e:
-                logger.error(f"Failed to create data directory {self.data_dir}: {e}")
+                # Log but continue with defaults, as read-only systems shouldn't crash
+                logger.warning(f"Failed to create data directory {self.data_dir} (read-only FS?): {e}")
                 return self.DEFAULT_WEIGHTS.copy()
 
+        # Try loading file
         if os.path.exists(self.weights_file):
             try:
                 with open(self.weights_file, 'r') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"Failed to load weights from {self.weights_file}: {e}")
+                # Don't overwrite if corrupted, just fallback to defaults for now
                 return self.DEFAULT_WEIGHTS.copy()
         else:
             # Create file with defaults
-            self._save_weights(self.DEFAULT_WEIGHTS)
+            try:
+                self._save_weights(self.DEFAULT_WEIGHTS)
+            except Exception as e:
+                logger.warning(f"Could not save default weights (read-only FS?): {e}")
             return self.DEFAULT_WEIGHTS.copy()
 
     def _save_weights(self, weights: Dict[str, Any]):
         """Save weights to file."""
         if not os.path.exists(self.data_dir):
-            os.makedirs(self.data_dir, exist_ok=True)
+            try:
+                os.makedirs(self.data_dir, exist_ok=True)
+            except OSError as e:
+                logger.error(f"Failed to create data directory for saving weights: {e}")
+                return
 
         try:
             with open(self.weights_file, 'w') as f:
@@ -167,15 +180,19 @@ class AdaptiveWeights:
         # Backup current weights
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         history_dir = os.path.join(self.data_dir, "weight_history")
-        if not os.path.exists(history_dir):
-            os.makedirs(history_dir, exist_ok=True)
 
-        backup_file = os.path.join(history_dir, f"modelWeights_{timestamp}.json")
         try:
-            with open(backup_file, 'w') as f:
-                json.dump(self.weights, f, indent=4)
-        except IOError as e:
-            logger.warning(f"Failed to backup weights to {backup_file}: {e}")
+            if not os.path.exists(history_dir):
+                os.makedirs(history_dir, exist_ok=True)
+
+            backup_file = os.path.join(history_dir, f"modelWeights_{timestamp}.json")
+            try:
+                with open(backup_file, 'w') as f:
+                    json.dump(self.weights, f, indent=4)
+            except IOError as e:
+                logger.warning(f"Failed to backup weights to {backup_file}: {e}")
+        except OSError:
+            logger.warning("Failed to create backup directory, skipping backup.")
 
         # Update and save
         self.weights = new_weights
