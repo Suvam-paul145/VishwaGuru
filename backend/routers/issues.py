@@ -38,21 +38,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/api/issues/{issue_id}", response_model=IssueResponse)
-async def get_issue(issue_id: int, db: Session = Depends(get_db)):
-    """
-    Get a single issue by ID.
-    Optimized: Direct O(1) lookup by ID.
-    """
-    issue = await run_in_threadpool(
-        lambda: db.query(Issue).filter(Issue.id == issue_id).first()
-    )
-
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue not found")
-
-    return issue
-
 @router.post("/api/issues", response_model=IssueCreateWithDeduplicationResponse, status_code=201)
 async def create_issue(
     request: Request,
@@ -634,7 +619,7 @@ def get_user_issues(
 
     return data
 
-@router.get("/api/issues/{issue_id}/blockchain-verify", response_model=BlockchainVerificationResponse)
+@router.get("/api/issues/{issue_id:int}/blockchain-verify", response_model=BlockchainVerificationResponse)
 async def verify_blockchain_integrity(issue_id: int, db: Session = Depends(get_db)):
     """
     Verify the cryptographic integrity of a report using the blockchain-style chaining.
@@ -744,3 +729,18 @@ def get_recent_issues(
     # Thread-safe cache update
     recent_issues_cache.set(data, cache_key)
     return data
+
+@router.get("/api/issues/{issue_id:int}", response_model=IssueResponse)
+async def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    """
+    Get a single issue by ID.
+    Optimized: Direct O(1) lookup by ID.
+    """
+    issue = await run_in_threadpool(
+        lambda: db.query(Issue).filter(Issue.id == issue_id).first()
+    )
+
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    return issue
