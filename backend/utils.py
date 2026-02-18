@@ -225,7 +225,10 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
 
         # Handle orientation (Correctness) after resize
         # exif_transpose works on resized image because resize preserves info
-        img = ImageOps.exif_transpose(img)
+        try:
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
 
         # Strip EXIF
         if 'exif' in img.info:
@@ -239,6 +242,10 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
             fmt = original_format
         else:
             fmt = 'PNG' if img.mode == 'RGBA' else 'JPEG'
+
+        # Explicitly handle RGBA -> JPEG conversion
+        if fmt == 'JPEG' and img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
 
         img.save(output, format=fmt, quality=85)
         img_bytes = output.getvalue()
