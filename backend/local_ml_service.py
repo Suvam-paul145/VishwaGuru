@@ -31,14 +31,9 @@ def load_general_model():
     """
     logger.info("Loading General Object Detection Model...")
     try:
-        # Import lazily to avoid startup crashes if dependencies are missing
         import torch
         from ultralytics import YOLO
-    except ImportError as e:
-        logger.error(f"Failed to import ML dependencies (torch/ultralytics): {e}")
-        return None
 
-    try:
         # Monkey-patch torch.load to use weights_only=False for YOLO model loading
         # This is safe because YOLO models from ultralytics are from a trusted source
         original_load = torch.load

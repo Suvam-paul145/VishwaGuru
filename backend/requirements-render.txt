@@ -18,3 +18,8 @@ passlib[bcrypt]
 scikit-learn
 numpy
 opencv-python-headless
+scipy
+pandas
+matplotlib
+seaborn
+joblib
