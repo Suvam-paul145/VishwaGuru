@@ -5,7 +5,7 @@ Centralizes environment variable handling and provides startup validation.
 
 import os
 import sys
-from typing import Optional
+from typing import Optional, List
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,11 +27,11 @@ class Config:
     # Application Settings
     environment: str
     debug: bool
-    cors_origins: list[str]
+    cors_origins: List[str]
     
     # File Upload Settings
     max_upload_size_mb: int
-    allowed_file_types: list[str]
+    allowed_file_types: List[str]
     
     # Rate Limiting
     rate_limit_enabled: bool
