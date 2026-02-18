@@ -3,7 +3,7 @@ from fastapi import UploadFile, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from PIL import Image
+from PIL import Image, ImageOps
 import os
 import shutil
 import logging
@@ -189,6 +189,9 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
         img = Image.open(file.file)
         original_format = img.format
 
+        # Handle orientation (Correctness)
+        img = ImageOps.exif_transpose(img)
+
         # Resize if needed
         if img.width > 1024 or img.height > 1024:
             ratio = min(1024 / img.width, 1024 / img.height)
@@ -197,8 +200,8 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
             img = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
 
         # Strip EXIF
-        img_no_exif = Image.new(img.mode, img.size)
-        img_no_exif.paste(img)
+        if 'exif' in img.info:
+            del img.info['exif']
 
         # Save to BytesIO
         output = io.BytesIO()
@@ -209,10 +212,10 @@ def process_uploaded_image_sync(file: UploadFile) -> tuple[Image.Image, bytes]:
         else:
             fmt = 'PNG' if img.mode == 'RGBA' else 'JPEG'
 
-        img_no_exif.save(output, format=fmt, quality=85)
+        img.save(output, format=fmt, quality=85)
         img_bytes = output.getvalue()
 
-        return img_no_exif, img_bytes
+        return img, img_bytes
 
     except Exception as pil_error:
         logger.error(f"PIL processing failed: {pil_error}")
