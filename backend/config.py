@@ -42,6 +42,11 @@ class Config:
     algorithm: str
     access_token_expire_minutes: int
     
+    # Detection & Verification
+    verification_threshold: int
+    deduplication_radius: float
+    deduplication_limit: int
+
     @classmethod
     def from_env(cls) -> "Config":
         """
@@ -105,6 +110,11 @@ class Config:
         algorithm = os.getenv("ALGORITHM", "HS256")
         access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
         
+        # Detection & Verification
+        verification_threshold = int(os.getenv("VERIFICATION_THRESHOLD", "5"))
+        deduplication_radius = float(os.getenv("DEDUPLICATION_RADIUS", "50.0"))
+        deduplication_limit = int(os.getenv("DEDUPLICATION_LIMIT", "3"))
+
         # If there are errors, raise with all missing variables
         if errors:
             error_message = "Missing required environment variables:\n" + "\n".join(f"  - {err}" for err in errors)
@@ -125,6 +135,9 @@ class Config:
             secret_key=secret_key,
             algorithm=algorithm,
             access_token_expire_minutes=access_token_expire_minutes,
+            verification_threshold=verification_threshold,
+            deduplication_radius=deduplication_radius,
+            deduplication_limit=deduplication_limit,
         )
     
     def is_production(self) -> bool:
