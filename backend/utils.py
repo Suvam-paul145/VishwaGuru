@@ -131,10 +131,14 @@ def _validate_uploaded_file_sync(file: UploadFile) -> Optional[Image.Image]:
 
         # Handle orientation (Correctness) after resize
         # exif_transpose works on resized image because resize preserves info
-        img_transposed = ImageOps.exif_transpose(img)
-        if img_transposed is not img:
-            img = img_transposed
-            img_modified = True
+        try:
+            img_transposed = ImageOps.exif_transpose(img)
+            if img_transposed is not img:
+                img = img_transposed
+                img_modified = True
+        except Exception:
+            # Fallback to original image if transpose fails
+            pass
 
         # Update file content only if modified
         if img_modified:
@@ -142,8 +146,10 @@ def _validate_uploaded_file_sync(file: UploadFile) -> Optional[Image.Image]:
             # If format is lost (e.g. after resize), default to JPEG
             # Use original_format if available and valid for mode
             save_fmt = img.format or original_format or 'JPEG'
-            if save_fmt == 'JPEG' and img.mode == 'RGBA':
-                save_fmt = 'PNG'
+
+            # Explicitly handle RGBA -> JPEG conversion
+            if save_fmt == 'JPEG' and img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
 
             img.save(output, format=save_fmt, quality=85)
             output.seek(0)
@@ -298,7 +304,10 @@ def save_file_blocking(file_obj, path, image: Optional[Image.Image] = None):
              img = Image.open(file_obj)
 
         # Handle orientation if not already done (idempotent-ish)
-        img = ImageOps.exif_transpose(img)
+        try:
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
 
         # Strip EXIF data (Optimization)
         if 'exif' in img.info:
@@ -307,6 +316,11 @@ def save_file_blocking(file_obj, path, image: Optional[Image.Image] = None):
         # Save without EXIF
         # Use original format if available, otherwise default to JPEG if mode is RGB, PNG if RGBA
         fmt = img.format or ('PNG' if img.mode == 'RGBA' else 'JPEG')
+
+        # Explicitly handle RGBA -> JPEG conversion
+        if fmt == 'JPEG' and img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+
         img.save(path, format=fmt)
         logger.info(f"Saved image {path} with EXIF metadata stripped")
     except Exception:
