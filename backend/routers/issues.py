@@ -612,17 +612,6 @@ def get_user_issues(
 
     return data
 
-@router.get("/api/issues/{issue_id}", response_model=IssueResponse)
-def get_issue(issue_id: int, db: Session = Depends(get_db)):
-    """
-    Get detailed information about a specific issue.
-    """
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue not found")
-    return issue
-
-
 @router.get("/api/issues/{issue_id}/blockchain-verify", response_model=BlockchainVerificationResponse)
 async def verify_blockchain_integrity(issue_id: int, db: Session = Depends(get_db)):
     """
@@ -715,3 +704,14 @@ def get_recent_issues(
     # Thread-safe cache update
     recent_issues_cache.set(data, cache_key)
     return data
+
+
+@router.get("/api/issues/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    """
+    Get detailed information about a specific issue.
+    """
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    return issue
