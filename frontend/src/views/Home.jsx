@@ -7,7 +7,7 @@ import {
   AlertTriangle, MapPin, Search, Activity, Camera, Trash2, ThumbsUp, Brush,
   Droplets, Zap, Truck, Flame, Dog, XCircle, Lightbulb, TreeDeciduous, Bug,
   Scan, ChevronRight, LayoutGrid, Shield, Leaf, Building, CheckCircle, Trophy, Monitor,
-  Volume2, Users, Waves, Accessibility, Siren, Recycle, Eye, ChevronUp, Signpost, Car, HardHat
+  Volume2, Users, Waves, Accessibility, Siren, Recycle, Eye, ChevronUp, Signpost, Car, Hammer
 } from 'lucide-react';
 
 const CameraCheckModal = ({ onClose }) => {
@@ -299,7 +299,7 @@ const Home = ({ setView, fetchResponsibilityMap, recentIssues, handleUpvote, loa
               className="flex flex-col items-center justify-center bg-orange-50 border-2 border-orange-100 p-4 rounded-xl hover:bg-orange-100 transition shadow-sm h-32"
             >
               <div className="bg-orange-600 text-white p-3 rounded-full mb-2">
-                <HardHat size={24} />
+                <Hammer size={24} />
               </div>
               <span className="font-semibold text-orange-900 text-sm">Construction Safety</span>
             </button>
