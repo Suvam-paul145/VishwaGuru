@@ -58,8 +58,9 @@ async def background_initialization(app: FastAPI):
         logger.info("Maharashtra data pre-loaded successfully.")
 
         # 3. Start Telegram Bot in separate thread
-        await run_in_threadpool(start_bot_thread)
-        logger.info("Telegram bot started in separate thread.")
+        # Temporarily disabled for local testing
+        # await run_in_threadpool(start_bot_thread)
+        logger.info("Telegram bot initialization skipped for local testing.")
     except Exception as e:
         logger.error(f"Error during background initialization: {e}", exc_info=True)
 
@@ -141,11 +142,16 @@ if not is_production:
     dev_origins = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:5174",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
         "http://localhost:8080",
     ]
     allowed_origins.extend(dev_origins)
+    # Also add the one from .env if it's different
+    if frontend_url not in allowed_origins:
+        allowed_origins.append(frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
