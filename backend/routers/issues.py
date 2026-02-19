@@ -33,6 +33,7 @@ from backend.cache import recent_issues_cache, nearby_issues_cache
 from backend.hf_api_service import verify_resolution_vqa
 from backend.dependencies import get_http_client
 from backend.rag_service import rag_service
+from backend.adaptive_weights import AdaptiveWeights
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,11 @@ async def create_issue(
 
     if latitude is not None and longitude is not None:
         try:
-            # Find existing open issues within 50 meters
+            # Find existing open issues within dynamic radius
+            search_radius = AdaptiveWeights().duplicate_search_radius
+
             # Optimization: Use bounding box to filter candidates in SQL
-            min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, 50.0)
+            min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, search_radius)
 
             # Performance Boost: Use column projection to avoid loading full model instances
             open_issues = await run_in_threadpool(
@@ -118,7 +121,7 @@ async def create_issue(
             )
 
             nearby_issues_with_distance = find_nearby_issues(
-                open_issues, latitude, longitude, radius_meters=50.0
+                open_issues, latitude, longitude, radius_meters=search_radius
             )
 
             if nearby_issues_with_distance:
@@ -287,7 +290,7 @@ async def upvote_issue(issue_id: int, db: Session = Depends(get_db)):
 def get_nearby_issues(
     latitude: float = Query(..., ge=-90, le=90, description="Latitude of the location"),
     longitude: float = Query(..., ge=-180, le=180, description="Longitude of the location"),
-    radius: float = Query(50.0, ge=10, le=500, description="Search radius in meters"),
+    radius: float = Query(None, ge=10, le=500, description="Search radius in meters"),
     limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
     db: Session = Depends(get_db)
 ):
@@ -296,15 +299,18 @@ def get_nearby_issues(
     Returns issues within the specified radius, sorted by distance.
     """
     try:
+        # Use dynamic radius if not provided
+        effective_radius = radius if radius is not None else AdaptiveWeights().duplicate_search_radius
+
         # Check cache first
-        cache_key = f"{latitude:.5f}_{longitude:.5f}_{radius}_{limit}"
+        cache_key = f"{latitude:.5f}_{longitude:.5f}_{effective_radius}_{limit}"
         cached_data = nearby_issues_cache.get(cache_key)
         if cached_data:
             return cached_data
 
         # Query open issues with coordinates
         # Optimization: Use bounding box to filter candidates in SQL
-        min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, radius)
+        min_lat, max_lat, min_lon, max_lon = get_bounding_box(latitude, longitude, effective_radius)
 
         # Performance Boost: Use column projection to avoid loading full model instances
         open_issues = db.query(
@@ -325,7 +331,7 @@ def get_nearby_issues(
         ).all()
 
         nearby_issues_with_distance = find_nearby_issues(
-            open_issues, latitude, longitude, radius_meters=radius
+            open_issues, latitude, longitude, radius_meters=effective_radius
         )
 
         # Convert to response format and limit results
