@@ -38,7 +38,7 @@ class CivicIntelligenceEngine:
         # 5. Save Snapshot
         self._save_snapshot(index_data, trends)
 
-        logger.info(f"Daily refinement complete. Civic Index: {index_data['score']}")
+        logger.info(f"Daily refinement complete. Civic Index: {index_data.get('score', 0)}")
         return index_data
 
     def _optimize_severity_weights(self, db: Session, trends: dict):

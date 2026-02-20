@@ -30,7 +30,14 @@ def main():
     try:
         result = civic_engine.refine_daily(db)
         logger.info("Daily Refinement Job completed successfully.")
-        logger.info(f"Summary: {result}")
+
+        # Sanitize summary for logging to avoid sensitive location data
+        safe_summary = {
+            "score": result.get("score"),
+            "top_concern": result.get("top_concern"),
+            "metrics": result.get("metrics")
+        }
+        logger.info(f"Summary: {safe_summary}")
     except Exception as e:
         logger.error(f"Daily Refinement Job failed: {e}", exc_info=True)
     finally:
