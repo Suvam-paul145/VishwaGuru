@@ -23,26 +23,36 @@ def client(db_session):
 
 def test_blockchain_verification_success(client, db_session):
     # Create first issue
-    hash1_content = "First issue|Road|"
+    lat1, lon1 = 19.0760, 72.8777
+    lat1_str, lon1_str = f"{lat1:.7f}", f"{lon1:.7f}"
+    hash1_content = f"First issue|Road|{lat1_str}|{lon1_str}|"
     hash1 = hashlib.sha256(hash1_content.encode()).hexdigest()
 
     issue1 = Issue(
         description="First issue",
         category="Road",
-        integrity_hash=hash1
+        latitude=lat1,
+        longitude=lon1,
+        integrity_hash=hash1,
+        previous_integrity_hash=""
     )
     db_session.add(issue1)
     db_session.commit()
     db_session.refresh(issue1)
 
     # Create second issue chained to first
-    hash2_content = f"Second issue|Garbage|{hash1}"
+    lat2, lon2 = 19.0761, 72.8778
+    lat2_str, lon2_str = f"{lat2:.7f}", f"{lon2:.7f}"
+    hash2_content = f"Second issue|Garbage|{lat2_str}|{lon2_str}|{hash1}"
     hash2 = hashlib.sha256(hash2_content.encode()).hexdigest()
 
     issue2 = Issue(
         description="Second issue",
         category="Garbage",
-        integrity_hash=hash2
+        latitude=lat2,
+        longitude=lon2,
+        integrity_hash=hash2,
+        previous_integrity_hash=hash1
     )
     db_session.add(issue2)
     db_session.commit()
@@ -64,10 +74,14 @@ def test_blockchain_verification_success(client, db_session):
 
 def test_blockchain_verification_failure(client, db_session):
     # Create issue with tampered hash
+    lat, lon = 19.0760, 72.8777
     issue = Issue(
         description="Tampered issue",
         category="Road",
-        integrity_hash="invalidhash"
+        latitude=lat,
+        longitude=lon,
+        integrity_hash="invalidhash",
+        previous_integrity_hash=""
     )
     db_session.add(issue)
     db_session.commit()
