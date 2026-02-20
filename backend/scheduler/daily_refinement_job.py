@@ -31,10 +31,8 @@ def main():
         result = civic_engine.refine_daily(db)
         logger.info("Daily Refinement Job completed successfully.")
 
-        # Log minimal info to avoid sensitive data leakage (CodeQL alert)
-        final_score = result.get("score")
-        top_concern = result.get("top_concern")
-        logger.info(f"Daily Refinement Job finished. Score: {final_score}, Concern: {top_concern}")
+        # Log simple success message to avoid CodeQL sensitive data alerts
+        logger.info("Daily Refinement Job finished successfully.")
     except Exception as e:
         logger.error(f"Daily Refinement Job failed: {e}", exc_info=True)
     finally:
