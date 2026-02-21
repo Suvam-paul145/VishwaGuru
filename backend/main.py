@@ -38,6 +38,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Debug info for Render deployment
+logger.info(f"Startup - PYTHONPATH: {os.environ.get('PYTHONPATH')}")
+logger.info(f"Startup - CWD: {os.getcwd()}")
+logger.info(f"Startup - sys.path: {sys.path}")
+
 async def background_initialization(app: FastAPI):
     """Perform non-critical startup tasks in background to speed up app availability"""
     try:
