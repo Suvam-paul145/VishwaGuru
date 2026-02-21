@@ -10,12 +10,7 @@ const PlaygroundDetector = ({ onBack }) => {
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        startCamera();
-        return () => stopCamera();
-    }, []);
-
-    const startCamera = async () => {
+    const startCamera = React.useCallback(async () => {
         setError(null);
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -28,14 +23,19 @@ const PlaygroundDetector = ({ onBack }) => {
         } catch (err) {
             setError("Camera access failed: " + err.message);
         }
-    };
+    }, []);
 
-    const stopCamera = () => {
+    const stopCamera = React.useCallback(() => {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             setStream(null);
         }
-    };
+    }, [stream]);
+
+    useEffect(() => {
+        startCamera();
+        return () => stopCamera();
+    }, [startCamera, stopCamera]);
 
     const analyze = async () => {
         if (!videoRef.current || !canvasRef.current) return;
