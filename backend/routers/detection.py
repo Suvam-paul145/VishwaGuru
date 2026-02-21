@@ -72,11 +72,15 @@ async def _cached_detect_graffiti(image_bytes: bytes):
 
 @alru_cache(maxsize=100)
 async def _cached_detect_traffic_sign(image_bytes: bytes):
-    return await detect_traffic_sign_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
+    # Get shared client at runtime (initialized in lifespan)
+    client = backend.dependencies.SHARED_HTTP_CLIENT
+    return await detect_traffic_sign_clip(image_bytes, client=client)
 
 @alru_cache(maxsize=100)
 async def _cached_detect_abandoned_vehicle(image_bytes: bytes):
-    return await detect_abandoned_vehicle_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
+    # Get shared client at runtime (initialized in lifespan)
+    client = backend.dependencies.SHARED_HTTP_CLIENT
+    return await detect_abandoned_vehicle_clip(image_bytes, client=client)
 
 # Endpoints
 

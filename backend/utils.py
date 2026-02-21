@@ -21,7 +21,8 @@ HAS_MAGIC = False
 try:
     import magic
     HAS_MAGIC = True
-except ImportError:
+except (ImportError, OSError, Exception):
+    # Catch both ImportError (not installed) and OSError (missing libmagic C library on Render)
     HAS_MAGIC = False
 
 logger = logging.getLogger(__name__)
