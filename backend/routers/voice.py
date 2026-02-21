@@ -5,10 +5,12 @@ Issue #291: Local Language and Voice-Based Grievance Submission
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
 import os
+import uuid
 from datetime import datetime, timezone
 
 from backend.database import get_db
@@ -33,6 +35,9 @@ router = APIRouter()
 AUDIO_STORAGE_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "audio_recordings")
 os.makedirs(AUDIO_STORAGE_DIR, exist_ok=True)
 
+# Maximum audio file size (10 MB)
+MAX_AUDIO_SIZE = 10 * 1024 * 1024
+
 
 @router.post("/api/voice/transcribe", response_model=VoiceTranscriptionResponse)
 async def transcribe_voice(
@@ -54,11 +59,19 @@ async def transcribe_voice(
         if not audio_content:
             raise HTTPException(status_code=400, detail="Empty audio file provided")
         
+        # Validate file size
+        if len(audio_content) > MAX_AUDIO_SIZE:
+            raise HTTPException(
+                status_code=413, 
+                detail=f"Audio file too large. Maximum size is {MAX_AUDIO_SIZE / 1024 / 1024:.0f} MB."
+            )
+        
         # Get voice service
         voice_service = get_voice_service()
         
-        # Process voice grievance (transcribe + translate)
-        result = voice_service.process_voice_grievance(
+        # Process voice grievance (transcribe + translate) in threadpool to avoid blocking
+        result = await run_in_threadpool(
+            voice_service.process_voice_grievance,
             audio_file=audio_content,
             preferred_language=preferred_language
         )
@@ -181,11 +194,19 @@ async def submit_voice_issue(
         if not audio_content:
             raise HTTPException(status_code=400, detail="Empty audio file provided")
         
+        # Validate file size
+        if len(audio_content) > MAX_AUDIO_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Audio file too large. Maximum size is {MAX_AUDIO_SIZE / 1024 / 1024:.0f} MB."
+            )
+        
         # Get voice service
         voice_service = get_voice_service()
         
-        # Process voice (transcribe + translate)
-        voice_result = voice_service.process_voice_grievance(
+        # Process voice (transcribe + translate) in threadpool to avoid blocking
+        voice_result = await run_in_threadpool(
+            voice_service.process_voice_grievance,
             audio_file=audio_content,
             preferred_language=preferred_language
         )
@@ -217,12 +238,23 @@ async def submit_voice_issue(
                 detail="Description too short. Please provide at least 10 characters."
             )
         
-        # Save audio file
-        audio_filename = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{audio_file.filename}"
+        # Save audio file with secure filename (prevent path traversal)
+        # Use UUID to avoid any user-controlled filename issues
+        file_extension = '.wav'  # Default extension
+        if audio_file.filename:
+            # Try to extract extension safely
+            parts = audio_file.filename.rsplit('.', 1)
+            if len(parts) == 2 and parts[1].lower() in ['wav', 'mp3', 'flac', 'ogg', 'm4a']:
+                file_extension = '.' + parts[1].lower()
+        
+        audio_filename = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}{file_extension}"
         audio_file_path = os.path.join(AUDIO_STORAGE_DIR, audio_filename)
         
         with open(audio_file_path, 'wb') as f:
             f.write(audio_content)
+        
+        # Store relative path for portability
+        relative_audio_path = os.path.join("data", "audio_recordings", audio_filename)
         
         # Create issue in database
         reference_id = generate_reference_id()
@@ -243,7 +275,7 @@ async def submit_voice_issue(
             original_text=original_text,
             transcription_confidence=voice_result.get('confidence', 0.0),
             manual_correction_applied=manual_correction_applied,
-            audio_file_path=audio_file_path
+            audio_file_path=relative_audio_path  # Store relative path
         )
         
         db.add(new_issue)
@@ -304,14 +336,33 @@ def get_issue_audio(issue_id: int, db: Session = Depends(get_db)):
         if issue.submission_type != 'voice' or not issue.audio_file_path:
             raise HTTPException(status_code=404, detail="No audio file available for this issue")
         
-        if not os.path.exists(issue.audio_file_path):
+        # Resolve path (handle both absolute and relative paths)
+        if os.path.isabs(issue.audio_file_path):
+            audio_path = issue.audio_file_path
+        else:
+            # Relative path - resolve from backend directory
+            backend_dir = os.path.dirname(os.path.dirname(__file__))
+            audio_path = os.path.join(backend_dir, issue.audio_file_path)
+        
+        if not os.path.exists(audio_path):
             raise HTTPException(status_code=404, detail="Audio file not found on server")
+        
+        # Detect media type from file extension
+        extension = os.path.splitext(audio_path)[1].lower()
+        media_type_map = {
+            '.wav': 'audio/wav',
+            '.mp3': 'audio/mpeg',
+            '.flac': 'audio/flac',
+            '.ogg': 'audio/ogg',
+            '.m4a': 'audio/mp4'
+        }
+        media_type = media_type_map.get(extension, 'audio/wav')
         
         from fastapi.responses import FileResponse
         return FileResponse(
-            issue.audio_file_path,
-            media_type='audio/wav',
-            filename=os.path.basename(issue.audio_file_path)
+            audio_path,
+            media_type=media_type,
+            filename=os.path.basename(audio_path)
         )
         
     except HTTPException:

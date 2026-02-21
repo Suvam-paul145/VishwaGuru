@@ -8,10 +8,12 @@ This feature enables non-technical users to submit grievances using voice record
 ## Features
 
 ### 1. Voice Transcription
-- Support for multiple audio formats (WAV, MP3, FLAC)
-- Automatic speech-to-text conversion
+- Support for multiple audio formats (WAV, MP3, FLAC, OGG, M4A)
+- Automatic speech-to-text conversion using Google Speech Recognition
+- **Intelligent auto-detection**: Tests multiple languages and picks the best match
 - Confidence scoring for transcription quality
 - Manual correction workflow for low-confidence transcriptions
+- Thread-safe processing for concurrent requests
 
 ### 2. Multi-Language Support
 The system supports the following Indian regional languages:
@@ -167,11 +169,13 @@ API endpoints for:
 ### Dependencies
 ```txt
 SpeechRecognition     # Speech-to-text
-pydub                 # Audio processing
-googletrans==4.0.0rc1 # Translation
+pydub                 # Audio format conversion (MP3, FLAC support)
+googletrans==4.0.2    # Translation (stable release, Jan 2025)
 langdetect            # Language detection
 indic-nlp-library     # Indian language support
 ```
+
+**Note**: Upgraded from googletrans 4.0.0rc1 to stable 4.0.2 for improved reliability.
 
 ## Usage Examples
 
@@ -285,15 +289,20 @@ Create test recordings with:
 6. Emotion/urgency detection from voice
 
 ## Security Considerations
-- Audio files stored securely with unique names
-- User consent for voice recording
-- Privacy-preserving transcription (no cloud storage of raw audio)
-- Secure deletion of audio after processing (configurable retention)
+- Audio files stored securely with UUID-based unique names (prevents path traversal attacks)
+- File size validation (10 MB maximum) to prevent resource exhaustion
+- User consent for voice recording required by frontend
+- **Note**: Audio is sent to Google Speech Recognition API for transcription (cloud processing)
+- **Note**: Audio files are stored on the server for audit purposes (persistent storage)
+- Relative path storage for deployment portability
+- Thread-safe translation service (new instance per request)
 
 ## Performance
 - Average transcription time: 2-5 seconds
 - Supported audio length: up to 60 seconds per recording
+- Maximum file size: 10 MB (enforced at API level)
 - Storage: ~1-2 MB per minute of audio (WAV format)
+- Non-blocking async processing using threadpool for concurrent requests
 
 ## Troubleshooting
 
@@ -310,6 +319,30 @@ Create test recordings with:
 3. **Translation errors**
    - Solution: Provide manual description override
    - Use simpler vocabulary
+
+4. **"Audio file too large" (413 error)**
+   - Solution: File must be under 10 MB
+   - Compress or shorten the recording
+
+5. **Auto-detection picking wrong language**
+   - Solution: Specify language explicitly instead of using 'auto'
+   - Speak clearly to improve detection accuracy
+
+## Security Improvements (Code Review Fixes)
+
+### Critical Fixes Applied
+1. **Path Traversal Prevention**: User-provided filenames replaced with UUID-based names
+2. **File Size Validation**: 10 MB limit enforced to prevent resource exhaustion
+3. **Thread-Safety**: Translator instances created per-request instead of singleton
+4. **Async Processing**: Blocking I/O wrapped in threadpool to prevent event loop blocking
+5. **Relative Path Storage**: Portable paths for deployment flexibility
+
+### Dependency Upgrades
+- googletrans upgraded from 4.0.0rc1 (2020) to 4.0.2 (2025) for stability
+
+### Auto-Detection Enhancement
+- Previous: Defaulted to English when language='auto'
+- **New**: Tests multiple candidate languages (Hindi, Marathi, English, Tamil, Telugu, Bengali) and picks the best match based on confidence scores
 
 ## License
 This feature is part of VishwaGuru and follows the same license.

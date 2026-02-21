@@ -12,6 +12,7 @@ from pathlib import Path
 import speech_recognition as sr
 from googletrans import Translator
 from langdetect import detect, LangDetectException
+from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class VoiceService:
     
     def __init__(self):
         self.recognizer = sr.Recognizer()
-        self.translator = Translator()
+        # Don't create translator singleton - create per request for thread-safety
         
         # Adjust for ambient noise
         self.recognizer.energy_threshold = 4000
@@ -64,13 +65,26 @@ class VoiceService:
         """
         try:
             # Create temporary file for audio processing
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
-                temp_audio.write(audio_file)
-                temp_audio_path = temp_audio.name
+            # Detect file format and convert to WAV if needed
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.tmp') as temp_input:
+                temp_input.write(audio_file)
+                temp_input_path = temp_input.name
+            
+            # Convert to WAV format using pydub (supports MP3, FLAC, etc.)
+            try:
+                audio = AudioSegment.from_file(temp_input_path)
+                temp_wav_path = temp_input_path + '.wav'
+                audio.export(temp_wav_path, format='wav')
+            except Exception as conv_error:
+                logger.warning(f"Audio conversion failed, trying direct load: {conv_error}")
+                # Try renaming to .wav and loading directly
+                temp_wav_path = temp_input_path + '.wav'
+                os.rename(temp_input_path, temp_wav_path)
+                temp_input_path = None  # Mark as renamed
             
             try:
                 # Load audio file
-                with sr.AudioFile(temp_audio_path) as source:
+                with sr.AudioFile(temp_wav_path) as source:
                     # Adjust for ambient noise
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
                     
@@ -78,27 +92,53 @@ class VoiceService:
                     audio_data = self.recognizer.record(source)
                 
                 # Determine language for recognition
-                recognition_language = None if language == 'auto' else language
-                
-                # Perform speech recognition
-                # Using Google Speech Recognition for Indian languages
-                transcribed_text = self.recognizer.recognize_google(
-                    audio_data,
-                    language=recognition_language,
-                    show_all=False
-                )
-                
-                # Detect language if auto mode
-                detected_language = language
+                # If auto mode, try common Indian languages in order of likely usage
                 if language == 'auto':
-                    try:
-                        detected_language = detect(transcribed_text)
-                    except LangDetectException:
-                        detected_language = 'en'  # Default to English
-                
-                # Estimate confidence (Google API doesn't provide confidence scores directly)
-                # We'll use a heuristic based on text length and clarity
-                confidence = self._estimate_confidence(transcribed_text)
+                    # Attempt recognition with multiple languages and pick best result
+                    candidate_languages = ['hi', 'mr', 'en', 'ta', 'te', 'bn']
+                    best_result = None
+                    best_confidence = 0
+                    
+                    for lang_code in candidate_languages:
+                        try:
+                            result = self.recognizer.recognize_google(
+                                audio_data,
+                                language=lang_code,
+                                show_all=True
+                            )
+                            if result and 'alternative' in result:
+                                # Get top alternative with confidence
+                                top_alt = result['alternative'][0]
+                                confidence = top_alt.get('confidence', 0.5)
+                                if confidence > best_confidence:
+                                    best_confidence = confidence
+                                    best_result = {
+                                        'text': top_alt['transcript'],
+                                        'language': lang_code,
+                                        'confidence': confidence
+                                    }
+                        except (sr.UnknownValueError, sr.RequestError):
+                            continue
+                    
+                    if not best_result:
+                        # Fall back to English if no result
+                        transcribed_text = self.recognizer.recognize_google(audio_data, language='en')
+                        detected_language = 'en'
+                        confidence = 0.6
+                    else:
+                        transcribed_text = best_result['text']
+                        detected_language = best_result['language']
+                        confidence = best_result['confidence']
+                else:
+                    # Use specified language
+                    recognition_language = language
+                    transcribed_text = self.recognizer.recognize_google(
+                        audio_data,
+                        language=recognition_language,
+                        show_all=False
+                    )
+                    detected_language = language
+                    confidence = self._estimate_confidence(transcribed_text)
                 
                 logger.info(f"Successfully transcribed audio: language={detected_language}, confidence={confidence}")
                 
@@ -111,9 +151,11 @@ class VoiceService:
                 }
                 
             finally:
-                # Clean up temporary file
-                if os.path.exists(temp_audio_path):
-                    os.unlink(temp_audio_path)
+                # Clean up temporary files
+                if temp_input_path and os.path.exists(temp_input_path):
+                    os.unlink(temp_input_path)
+                if os.path.exists(temp_wav_path):
+                    os.unlink(temp_wav_path)
                     
         except sr.UnknownValueError:
             logger.warning("Speech recognition could not understand audio")
@@ -170,13 +212,16 @@ class VoiceService:
                 return {
                     'translated_text': None,
                     'source_language': None,
+                    'source_language_name': None,
                     'target_language': None,
+                    'target_language_name': None,
                     'original_text': text,
                     'error': 'Empty text provided'
                 }
             
-            # Perform translation
-            translation = self.translator.translate(
+            # Perform translation (create new Translator instance for thread-safety)
+            translator = Translator()
+            translation = translator.translate(
                 text,
                 src=source_language,
                 dest=target_language
@@ -199,7 +244,9 @@ class VoiceService:
             return {
                 'translated_text': None,
                 'source_language': None,
+                'source_language_name': None,
                 'target_language': None,
+                'target_language_name': None,
                 'original_text': text,
                 'error': f'Translation error: {str(e)}'
             }
