@@ -12,11 +12,19 @@ class AdaptiveWeights:
     Supports hot-reloading when the file changes on disk.
     """
 
-    DEFAULT_FILE_PATH = "data/modelWeights.json"
+    # Resolve absolute path to data directory relative to this file
+    # This file is in backend/
+    # data/ is in root/
+    _BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+    _ROOT_DIR = os.path.dirname(_BACKEND_DIR)
+    DEFAULT_FILE_PATH = os.path.join(_ROOT_DIR, "data", "modelWeights.json")
 
-    def __init__(self, file_path: str = DEFAULT_FILE_PATH):
-        # Handle file path relative to repo root if needed, but assuming relative to CWD works
-        self.file_path = file_path
+    def __init__(self, file_path: str = None):
+        if file_path is None:
+            self.file_path = self.DEFAULT_FILE_PATH
+        else:
+            self.file_path = file_path
+
         self._last_mtime = 0.0
         self._weights = self._load_initial()
 
@@ -115,22 +123,22 @@ class AdaptiveWeights:
 
     def _load_initial(self) -> Dict[str, Any]:
         """Loads weights initially, creating file if needed."""
-        if not os.path.exists(self.file_path):
-            logger.info(f"Weights file not found at {self.file_path}. Using defaults.")
-            defaults = self._get_defaults()
-            # Ensure directory exists
-            dirname = os.path.dirname(self.file_path)
-            if dirname:
-                os.makedirs(dirname, exist_ok=True)
-            self._save_weights_to_file(defaults)
-            # Track mtime
-            try:
-                self._last_mtime = os.path.getmtime(self.file_path)
-            except OSError:
-                pass
-            return defaults
-
         try:
+            if not os.path.exists(self.file_path):
+                logger.info(f"Weights file not found at {self.file_path}. Using defaults.")
+                defaults = self._get_defaults()
+                # Ensure directory exists
+                dirname = os.path.dirname(self.file_path)
+                if dirname:
+                    os.makedirs(dirname, exist_ok=True)
+                self._save_weights_to_file(defaults)
+                # Track mtime
+                try:
+                    self._last_mtime = os.path.getmtime(self.file_path)
+                except OSError:
+                    pass
+                return defaults
+
             self._last_mtime = os.path.getmtime(self.file_path)
             with open(self.file_path, 'r') as f:
                 return json.load(f)

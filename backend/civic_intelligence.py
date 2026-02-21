@@ -17,7 +17,10 @@ class CivicIntelligenceEngine:
     Orchestrates daily refinement of the civic intelligence system.
     analyzes trends, optimizes weights, and calculates the daily index.
     """
-    SNAPSHOT_DIR = "data/dailySnapshots"
+    # Resolve absolute path to data directory relative to this file
+    _BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+    _ROOT_DIR = os.path.dirname(_BACKEND_DIR)
+    SNAPSHOT_DIR = os.path.join(_ROOT_DIR, "data", "dailySnapshots")
 
     def __init__(self):
         os.makedirs(self.SNAPSHOT_DIR, exist_ok=True)
