@@ -70,6 +70,14 @@ async def _cached_detect_civic_eye(image_bytes: bytes):
 async def _cached_detect_graffiti(image_bytes: bytes):
     return await detect_graffiti_art_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
 
+@alru_cache(maxsize=100)
+async def _cached_detect_traffic_sign(image_bytes: bytes):
+    return await detect_traffic_sign_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
+
+@alru_cache(maxsize=100)
+async def _cached_detect_abandoned_vehicle(image_bytes: bytes):
+    return await detect_abandoned_vehicle_clip(image_bytes, client=backend.dependencies.SHARED_HTTP_CLIENT)
+
 # Endpoints
 
 @router.post("/api/detect-pothole", response_model=DetectionResponse)
@@ -405,34 +413,24 @@ async def detect_graffiti_endpoint(image: UploadFile = File(...)):
 
 
 @router.post("/api/detect-traffic-sign")
-async def detect_traffic_sign_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+async def detect_traffic_sign_endpoint(image: UploadFile = File(...)):
+    # Optimized Image Processing: Validation + Optimization
+    _, image_bytes = await process_uploaded_image(image)
 
     try:
-        client = get_http_client(request)
-        detections = await detect_traffic_sign_clip(image_bytes, client=client)
-        return {"detections": detections}
+        return {"detections": await _cached_detect_traffic_sign(image_bytes)}
     except Exception as e:
         logger.error(f"Traffic sign detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/api/detect-abandoned-vehicle")
-async def detect_abandoned_vehicle_endpoint(request: Request, image: UploadFile = File(...)):
-    try:
-        image_bytes = await image.read()
-    except Exception as e:
-        logger.error(f"Invalid image file: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Invalid image file")
+async def detect_abandoned_vehicle_endpoint(image: UploadFile = File(...)):
+    # Optimized Image Processing: Validation + Optimization
+    _, image_bytes = await process_uploaded_image(image)
 
     try:
-        client = get_http_client(request)
-        detections = await detect_abandoned_vehicle_clip(image_bytes, client=client)
-        return {"detections": detections}
+        return {"detections": await _cached_detect_abandoned_vehicle(image_bytes)}
     except Exception as e:
         logger.error(f"Abandoned vehicle detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
