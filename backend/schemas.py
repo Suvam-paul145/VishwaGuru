@@ -393,7 +393,7 @@ class VisitImageUploadResponse(BaseModel):
     message: str = Field(..., description="Success message")
 
 class FieldOfficerVisitResponse(BaseModel):
-    """Response model for field officer visit"""
+    """Response model for field officer visit (authenticated users)"""
     id: int = Field(..., description="Visit ID")
     issue_id: int = Field(..., description="Issue ID")
     grievance_id: Optional[int] = Field(None, description="Grievance ID")
@@ -418,11 +418,39 @@ class FieldOfficerVisitResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class PublicFieldOfficerVisitResponse(BaseModel):
+    """Public response model for field officer visit (PII removed - no officer_email)"""
+    id: int = Field(..., description="Visit ID")
+    issue_id: int = Field(..., description="Issue ID")
+    grievance_id: Optional[int] = Field(None, description="Grievance ID")
+    officer_name: str = Field(..., description="Officer name")
+    officer_department: Optional[str] = Field(None, description="Department")
+    officer_designation: Optional[str] = Field(None, description="Designation")
+    check_in_latitude: float = Field(..., description="Check-in latitude")
+    check_in_longitude: float = Field(..., description="Check-in longitude")
+    check_in_time: datetime = Field(..., description="Check-in timestamp")
+    check_out_time: Optional[datetime] = Field(None, description="Check-out timestamp")
+    distance_from_site: Optional[float] = Field(None, description="Distance from site in meters")
+    within_geofence: bool = Field(..., description="Whether check-in was within geofence")
+    visit_notes: Optional[str] = Field(None, description="Visit notes")
+    visit_images: Optional[List[str]] = Field(None, description="Visit image paths")
+    visit_duration_minutes: Optional[int] = Field(None, description="Visit duration")
+    status: str = Field(..., description="Visit status")
+    verified_by: Optional[str] = Field(None, description="Verified by")
+    verified_at: Optional[datetime] = Field(None, description="Verification timestamp")
+    is_public: bool = Field(..., description="Public visibility")
+    created_at: datetime = Field(..., description="Creation timestamp")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class VisitHistoryResponse(BaseModel):
     """Response for visit history of an issue"""
     issue_id: int = Field(..., description="Issue ID")
     total_visits: int = Field(..., description="Total number of visits")
-    visits: List[FieldOfficerVisitResponse] = Field(..., description="List of visits")
+    visits: List[PublicFieldOfficerVisitResponse] = Field(..., description="List of visits (PII removed for public access)")
+
 
 class VisitStatsResponse(BaseModel):
     """Response for visit statistics"""

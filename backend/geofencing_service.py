@@ -6,11 +6,16 @@ Issue #288: Field Officer Check-In System With Location Verification
 
 import logging
 import hashlib
+import hmac
 import math
+import os
 from typing import Tuple, Optional
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+# Get secret key from environment for HMAC
+SECRET_KEY = os.getenv("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7").encode('utf-8')
 
 # Earth's radius in meters (mean radius)
 EARTH_RADIUS_METERS = 6371000
@@ -87,29 +92,43 @@ def is_within_geofence(
 
 def generate_visit_hash(visit_data: dict) -> str:
     """
-    Generate an immutable hash for visit data (blockchain-like integrity).
+    Generate a tamper-resistant HMAC hash for visit data (blockchain-like integrity).
+    
+    Uses HMAC-SHA256 with server secret to prevent forgery.
+    Normalizes datetime to ISO format for deterministic hashing.
     
     Args:
         visit_data: Dictionary containing visit information
         
     Returns:
-        SHA-256 hash of visit data
+        HMAC-SHA256 hash of visit data
     """
     try:
+        # Normalize check_in_time to ISO format string for determinism
+        check_in_time = visit_data.get('check_in_time')
+        if isinstance(check_in_time, datetime):
+            check_in_time_str = check_in_time.isoformat()
+        else:
+            check_in_time_str = str(check_in_time) if check_in_time else ""
+        
         # Create a deterministic string from visit data
         data_string = (
             f"{visit_data.get('issue_id')}"
             f"{visit_data.get('officer_email')}"
             f"{visit_data.get('check_in_latitude')}"
             f"{visit_data.get('check_in_longitude')}"
-            f"{visit_data.get('check_in_time')}"
+            f"{check_in_time_str}"
             f"{visit_data.get('visit_notes', '')}"
         )
         
-        # Generate SHA-256 hash
-        visit_hash = hashlib.sha256(data_string.encode('utf-8')).hexdigest()
+        # Generate HMAC-SHA256 hash for tamper-resistance
+        visit_hash = hmac.new(
+            SECRET_KEY,
+            data_string.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
         
-        logger.debug(f"Generated visit hash: {visit_hash[:16]}...")
+        logger.debug(f"Generated visit HMAC hash: {visit_hash[:16]}...")
         
         return visit_hash
         
@@ -186,7 +205,15 @@ def calculate_visit_metrics(visits: list) -> dict:
         
     except Exception as e:
         logger.error(f"Error calculating visit metrics: {e}", exc_info=True)
-        return {}
+        # Return valid default metrics to avoid ValidationError in router
+        return {
+            'total_visits': 0,
+            'verified_visits': 0,
+            'within_geofence_count': 0,
+            'outside_geofence_count': 0,
+            'unique_officers': 0,
+            'average_distance_from_site': None
+        }
 
 
 class GeoFencingService:

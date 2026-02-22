@@ -229,13 +229,11 @@ Get aggregate statistics for all visits.
 ```json
 {
   "total_visits": 150,
-  "total_within_geofence": 142,
-  "total_outside_geofence": 8,
-  "compliance_rate": 94.67,
-  "average_distance_from_site": 52.3,
-  "total_verified": 130,
-  "total_unverified": 20,
-  "average_visit_duration_minutes": 38.5
+  "verified_visits": 130,
+  "within_geofence_count": 142,
+  "outside_geofence_count": 8,
+  "unique_officers": 25,
+  "average_distance_from_site": 52.3
 }
 ```
 
@@ -301,25 +299,60 @@ app.include_router(field_officer.router, tags=["Field Officer Check-In"])
 
 ## Security & Privacy Considerations
 
-### Public Transparency
+### Authentication & Authorization
+⚠️ **IMPORTANT**: This implementation currently lacks authentication and authorization. Before deploying to production:
+
+1. **Required Enhancements:**
+   - Add JWT authentication to check-in/check-out endpoints (use `Depends(get_current_active_user)`)
+   - Require `officer` or `field_officer` role for check-in/check-out
+   - Require `admin` or `supervisor` role for visit verification
+   - Validate that `officer_email` in request matches authenticated user's email
+   
+2. **Security Risks Without Auth:**
+   - Anyone can create check-in records with any officer email
+   - Malicious users can fabricate visit records
+   - No protection against unauthorized file uploads
+   - Visit verification can be performed by anyone
+
+3. **Recommended Implementation:**
+   ```python
+   @router.post("/api/field-officer/check-in")
+   def officer_check_in(
+       request: OfficerCheckInRequest,
+       current_user: User = Depends(get_current_active_user),
+       db: Session = Depends(get_db)
+   ):
+       # Verify officer_email matches current_user.email
+       if request.officer_email != current_user.email:
+           raise HTTPException(403, "Cannot check in for another officer")
+       # ... rest of implementation
+   ```
+
+### Public Transparency vs. Privacy
 - All visits are public by default (`is_public=True`)
-- Citizens can verify officer visits to their reported issues
-- Enhances accountability and trust
+- **Officer emails** are now **excluded** from public visit history (`PublicFieldOfficerVisitResponse`)
+- Citizens can verify officer visits without exposing PII
+- Authenticated users with proper permissions can access full visit details including emails
 
 ### Data Integrity
-- Immutable visit hash (SHA-256) prevents tampering
-- Hash includes: issue_id, officer_email, check-in coords, timestamp, notes
+- **HMAC-SHA256** hash with server secret prevents tampering
+- Hash includes: issue_id, officer_email, check-in coords, timestamp (ISO format), notes
+- Deterministic hashing ensures consistent hash generation
 - Blockchain-inspired integrity verification
 
 ### GPS Validation
-- Coordinate range validation
-- Distance calculation using geodesic formula (not Euclidean)
+- Coordinate range validation (-90 to 90 lat, -180 to 180 lon)
+- Uses `is None` check to allow valid 0.0 coordinates (equator/prime meridian)
+- Distance calculation using Haversine formula (geodesic, not Euclidean)
 - Configurable geo-fence radius (10-1000m)
 
 ### File Upload Security
-- Secure filename generation (timestamp-based)
-- Content type validation (images only)
-- Maximum 10 images per visit
+- **File size limit**: 10 MB per image
+- **Extension whitelist**: jpg, jpeg, png, gif, webp only
+- **Content type validation**: Must be image/*
+- **Cumulative limit**: Maximum 10 images total per visit
+- Secure filename generation (timestamp-based, no user input)
+- Files stored in dedicated directory outside web root
 - Files stored outside web root
 
 ## Use Cases
@@ -451,11 +484,15 @@ No new external dependencies required. Uses existing libraries:
 ## Files Modified/Created
 
 ### Created Files:
+1. `backend/geofencing_service.py` - Geo-fencing logic (242 lines)
+2. `backend/routers/field_officer.py` - API endpoints (432 lines)
+3. `FIELD_OFFICER_CHECKIN_FEATURE.md` - This documentation
+
+### Modified Files:
 1. `backend/models.py` - Added `FieldOfficerVisit` model
-2. `backend/schemas.py` - Added 7 check-in schemas
-3. `backend/geofencing_service.py` - Geo-fencing logic (226 lines)
-4. `backend/routers/field_officer.py` - API endpoints (500+ lines)
-5. `FIELD_OFFICER_CHECKIN_FEATURE.md` - This documentation
+2. `backend/schemas.py` - Added 8 check-in schemas (including PublicFieldOfficerVisitResponse)
+3. `backend/init_db.py` - Database migrations with indexes
+4. `backend/main.py` - Registered field_officer router
 
 ### Modified Files:
 1. `backend/init_db.py` - Added table migrations

@@ -6,17 +6,20 @@ Issue #288: Field Officer Check-In System With Location Verification
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import func, case
 from typing import List, Optional
 import logging
 import os
 from datetime import datetime, timezone
 
 from backend.database import get_db
-from backend.models import FieldOfficerVisit, Issue, Grievance
+from backend.models import FieldOfficerVisit, Issue, Grievance, User
+from backend.dependencies import get_current_active_user
 from backend.schemas import (
     OfficerCheckInRequest,
     OfficerCheckOutRequest,
     FieldOfficerVisitResponse,
+    PublicFieldOfficerVisitResponse,
     VisitHistoryResponse,
     VisitStatsResponse,
     VisitImageUploadResponse
@@ -35,6 +38,10 @@ router = APIRouter()
 # Directory for storing visit images
 VISIT_IMAGES_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "visit_images")
 os.makedirs(VISIT_IMAGES_DIR, exist_ok=True)
+
+# File upload constraints
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB per image
+ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
 
 
 @router.post("/api/field-officer/check-in", response_model=FieldOfficerVisitResponse)
@@ -69,8 +76,8 @@ def officer_check_in(request: OfficerCheckInRequest, db: Session = Depends(get_d
         if not geofencing.validate_coordinates(request.check_in_latitude, request.check_in_longitude):
             raise HTTPException(status_code=400, detail="Invalid GPS coordinates")
         
-        # Check if issue has location data
-        if not issue.latitude or not issue.longitude:
+        # Check if issue has location data (use 'is None' to allow 0.0 coordinates)
+        if issue.latitude is None or issue.longitude is None:
             raise HTTPException(
                 status_code=400,
                 detail="Issue does not have location data. Cannot verify geo-fence."
@@ -156,7 +163,7 @@ def officer_check_in(request: OfficerCheckInRequest, db: Session = Depends(get_d
         raise
     except Exception as e:
         logger.error(f"Error during officer check-in: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Check-in failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Check-in failed. Please try again.")
 
 
 @router.post("/api/field-officer/check-out", response_model=FieldOfficerVisitResponse)
@@ -231,7 +238,7 @@ def officer_check_out(request: OfficerCheckOutRequest, db: Session = Depends(get
         raise
     except Exception as e:
         logger.error(f"Error during officer check-out: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Check-out failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Check-out failed. Please try again.")
 
 
 @router.post("/api/field-officer/visit/{visit_id}/upload-images", response_model=VisitImageUploadResponse)
@@ -257,21 +264,54 @@ async def upload_visit_images(
         if len(images) > 10:
             raise HTTPException(status_code=400, detail="Maximum 10 images allowed per visit")
         
+        # Check cumulative image count
+        existing_images = visit.visit_images or []
+        if not isinstance(existing_images, list):
+            existing_images = []
+        
+        if len(existing_images) + len(images) > 10:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Total images would exceed limit. Current: {len(existing_images)}, attempting to add: {len(images)}"
+            )
+        
         image_paths = []
         
         for idx, image in enumerate(images):
+            # Validate content_type is present
+            if not image.content_type:
+                raise HTTPException(status_code=400, detail="File must have a content type")
+            
             # Validate file type
             if not image.content_type.startswith('image/'):
-                raise HTTPException(status_code=400, detail=f"File {image.filename} is not an image")
+                raise HTTPException(status_code=400, detail=f"File must be an image, got {image.content_type}")
+            
+            # Validate filename is present
+            if not image.filename:
+                raise HTTPException(status_code=400, detail="File must have a filename")
+            
+            # Validate extension
+            extension = image.filename.split('.')[-1].lower() if '.' in image.filename else ''
+            if extension not in ALLOWED_IMAGE_EXTENSIONS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File extension '{extension}' not allowed. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
+                )
+            
+            # Read and validate file size
+            content = await image.read()
+            if len(content) > MAX_UPLOAD_SIZE:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File {image.filename} exceeds maximum size of {MAX_UPLOAD_SIZE / 1024 / 1024:.1f} MB"
+                )
             
             # Generate secure filename
             timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
-            extension = image.filename.split('.')[-1] if '.' in image.filename else 'jpg'
             safe_filename = f"visit_{visit_id}_{timestamp}_{idx}.{extension}"
             file_path = os.path.join(VISIT_IMAGES_DIR, safe_filename)
             
             # Save file
-            content = await image.read()
             with open(file_path, 'wb') as f:
                 f.write(content)
             
@@ -280,10 +320,6 @@ async def upload_visit_images(
             image_paths.append(relative_path)
         
         # Update visit with image paths
-        existing_images = visit.visit_images or []
-        if not isinstance(existing_images, list):
-            existing_images = []
-        
         existing_images.extend(image_paths)
         visit.visit_images = existing_images
         visit.updated_at = datetime.now(timezone.utc)
@@ -302,7 +338,7 @@ async def upload_visit_images(
         raise
     except Exception as e:
         logger.error(f"Error uploading visit images: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Image upload failed. Please try again.")
 
 
 @router.get("/api/field-officer/issue/{issue_id}/visit-history", response_model=VisitHistoryResponse)
@@ -328,11 +364,10 @@ def get_issue_visit_history(
         visits = query.order_by(FieldOfficerVisit.check_in_time.desc()).all()
         
         visit_responses = [
-            FieldOfficerVisitResponse(
+            PublicFieldOfficerVisitResponse(
                 id=v.id,
                 issue_id=v.issue_id,
                 grievance_id=v.grievance_id,
-                officer_email=v.officer_email,
                 officer_name=v.officer_name,
                 officer_department=v.officer_department,
                 officer_designation=v.officer_designation,
@@ -368,15 +403,44 @@ def get_issue_visit_history(
 @router.get("/api/field-officer/visit-stats", response_model=VisitStatsResponse)
 def get_visit_statistics(db: Session = Depends(get_db)):
     """
-    Get aggregate statistics for all field officer visits
+    Get aggregate statistics for all field officer visits using optimized SQL queries
     
     Returns metrics like total visits, verification status, geo-fence compliance, etc.
     """
     try:
-        all_visits = db.query(FieldOfficerVisit).all()
-        metrics = calculate_visit_metrics(all_visits)
+        # Use SQL aggregates instead of loading all visits into memory
+        total_visits = db.query(func.count(FieldOfficerVisit.id)).scalar() or 0
         
-        return VisitStatsResponse(**metrics)
+        verified_visits = db.query(func.count(FieldOfficerVisit.id)).filter(
+            FieldOfficerVisit.verified_at.isnot(None)
+        ).scalar() or 0
+        
+        within_geofence_count = db.query(func.count(FieldOfficerVisit.id)).filter(
+            FieldOfficerVisit.within_geofence == True
+        ).scalar() or 0
+        
+        outside_geofence_count = db.query(func.count(FieldOfficerVisit.id)).filter(
+            FieldOfficerVisit.within_geofence == False
+        ).scalar() or 0
+        
+        unique_officers = db.query(func.count(func.distinct(FieldOfficerVisit.officer_email))).scalar() or 0
+        
+        average_distance = db.query(func.avg(FieldOfficerVisit.distance_from_site)).filter(
+            FieldOfficerVisit.distance_from_site.isnot(None)
+        ).scalar()
+        
+        # Round to 2 decimals if not None
+        if average_distance is not None:
+            average_distance = round(float(average_distance), 2)
+        
+        return VisitStatsResponse(
+            total_visits=total_visits,
+            verified_visits=verified_visits,
+            within_geofence_count=within_geofence_count,
+            outside_geofence_count=outside_geofence_count,
+            unique_officers=unique_officers,
+            average_distance_from_site=average_distance
+        )
         
     except Exception as e:
         logger.error(f"Error calculating visit statistics: {e}", exc_info=True)

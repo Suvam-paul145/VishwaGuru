@@ -164,13 +164,12 @@ def migrate_db():
             # This table is newly created for field officer check-in system
             if not inspector.has_table("field_officer_visits"):
                 logger.info("Creating field_officer_visits table...")
-                Base.metadata.tables['field_officer_visits'].create(engine)
+                # Use conn.execute to stay within the transaction
+                Base.metadata.tables['field_officer_visits'].create(bind=conn)
                 logger.info("Created field_officer_visits table")
-            else:
-                # Future migrations for field_officer_visits can go here
-                logger.info("field_officer_visits table already exists")
-                
-                # Indexes for field_officer_visits
+            
+            # Indexes for field_officer_visits (run regardless of table creation)
+            if inspector.has_table("field_officer_visits"):
                 if not index_exists("field_officer_visits", "ix_field_officer_visits_issue_id"):
                     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_field_officer_visits_issue_id ON field_officer_visits (issue_id)"))
                 
