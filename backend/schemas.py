@@ -416,7 +416,7 @@ class FieldOfficerVisitResponse(BaseModel):
     is_public: bool = Field(..., description="Public visibility")
     created_at: datetime = Field(..., description="Creation timestamp")
 
-   model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 class VisitHistoryResponse(BaseModel):
     """Response for visit history of an issue"""
