@@ -27,7 +27,11 @@ from backend.bot import start_bot_thread, stop_bot_thread
 from backend.init_db import migrate_db
 from backend.maharashtra_locator import load_maharashtra_pincode_data, load_maharashtra_mla_data
 from backend.exceptions import EXCEPTION_HANDLERS
+<<<<<<< HEAD
 from backend.routers import issues, detection, grievances, utility, auth, admin, analysis, resolution_proof
+=======
+from backend.routers import issues, detection, grievances, utility, auth, admin, analysis, voice
+>>>>>>> 6f18ad505f4fcd48a6fb4b391d9afc5e67598687
 from backend.grievance_service import GrievanceService
 import backend.dependencies
 
@@ -74,15 +78,18 @@ async def lifespan(app: FastAPI):
 
     # Startup: Database setup (Blocking but necessary for app consistency)
     try:
+        logger.info("Starting database initialization...")
         await run_in_threadpool(Base.metadata.create_all, bind=engine)
+        logger.info("Base.metadata.create_all completed.")
         await run_in_threadpool(migrate_db)
-        logger.info("Database initialized successfully.")
+        logger.info("migrate_db completed. Database initialized successfully.")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}", exc_info=True)
         # We continue to allow health checks even if DB has issues (for debugging)
 
     # Startup: Initialize Grievance Service (needed for escalation engine)
     try:
+        logger.info("Initializing grievance service...")
         grievance_service = GrievanceService()
         app.state.grievance_service = grievance_service
         logger.info("Grievance service initialized successfully.")
@@ -171,7 +178,11 @@ app.include_router(utility.router, tags=["Utility"])
 app.include_router(auth.router, tags=["Authentication"])
 app.include_router(admin.router)
 app.include_router(analysis.router, tags=["Analysis"])
+<<<<<<< HEAD
 app.include_router(resolution_proof.router)
+=======
+app.include_router(voice.router, tags=["Voice & Language"])
+>>>>>>> 6f18ad505f4fcd48a6fb4b391d9afc5e67598687
 
 @app.get("/health")
 def health():
