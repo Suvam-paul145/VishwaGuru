@@ -113,6 +113,8 @@ class Grievance(Base):
     audit_logs = relationship("EscalationAudit", back_populates="grievance")
     followers = relationship("GrievanceFollower", back_populates="grievance")
     closure_confirmations = relationship("ClosureConfirmation", back_populates="grievance")
+    resolution_evidence = relationship("ResolutionEvidence", back_populates="grievance")
+    resolution_tokens = relationship("ResolutionProofToken", back_populates="grievance")
 
 class SLAConfig(Base):
     __tablename__ = "sla_configs"
@@ -209,3 +211,77 @@ class ClosureConfirmation(Base):
     
     # Relationship
     grievance = relationship("Grievance", back_populates="closure_confirmations")
+
+
+class VerificationStatus(enum.Enum):
+    PENDING = "pending"
+    VERIFIED = "verified"
+    FLAGGED = "flagged"
+    FRAUD_DETECTED = "fraud_detected"
+
+
+class ResolutionProofToken(Base):
+    """One-time Resolution Proof Token for geo-temporal evidence capture."""
+    __tablename__ = "resolution_proof_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token_id = Column(String, unique=True, index=True, nullable=False)  # UUID
+    grievance_id = Column(Integer, ForeignKey("grievances.id"), nullable=False)
+    authority_email = Column(String, nullable=False, index=True)
+    geofence_latitude = Column(Float, nullable=False)
+    geofence_longitude = Column(Float, nullable=False)
+    geofence_radius_meters = Column(Float, nullable=False, default=200.0)
+    valid_from = Column(DateTime, nullable=False)
+    valid_until = Column(DateTime, nullable=False)
+    nonce = Column(String, nullable=False)
+    token_signature = Column(String, nullable=False)
+    is_used = Column(Boolean, default=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    # Relationship
+    grievance = relationship("Grievance", back_populates="resolution_tokens")
+    evidence = relationship("ResolutionEvidence", back_populates="token")
+
+
+class ResolutionEvidence(Base):
+    """Immutable evidence record with cryptographic hash and geo-temporal metadata."""
+    __tablename__ = "resolution_evidence"
+    __table_args__ = (
+        Index("ix_evidence_hash", "evidence_hash"),
+        Index("ix_evidence_grievance", "grievance_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    grievance_id = Column(Integer, ForeignKey("grievances.id"), nullable=False)
+    token_id = Column(Integer, ForeignKey("resolution_proof_tokens.id"), nullable=False)
+    evidence_hash = Column(String, nullable=False)  # SHA-256 of media file
+    gps_latitude = Column(Float, nullable=False)
+    gps_longitude = Column(Float, nullable=False)
+    capture_timestamp = Column(DateTime, nullable=False)
+    device_fingerprint_hash = Column(String, nullable=True)
+    metadata_bundle = Column(JSONEncodedDict, nullable=True)  # JSON bundle of all metadata
+    server_signature = Column(String, nullable=False)  # Server-side signature of the bundle
+    verification_status = Column(Enum(VerificationStatus), default=VerificationStatus.PENDING, index=True)
+    media_storage_path = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    # Relationships
+    grievance = relationship("Grievance", back_populates="resolution_evidence")
+    token = relationship("ResolutionProofToken", back_populates="evidence")
+    audit_logs = relationship("EvidenceAuditLog", back_populates="evidence")
+
+
+class EvidenceAuditLog(Base):
+    """Append-only audit log for evidence lifecycle tracking."""
+    __tablename__ = "evidence_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    evidence_id = Column(Integer, ForeignKey("resolution_evidence.id"), nullable=False)
+    action = Column(String, nullable=False)  # 'created', 'verified', 'flagged', 'fraud_detected'
+    details = Column(Text, nullable=True)
+    actor_email = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), index=True)
+
+    # Relationship
+    evidence = relationship("ResolutionEvidence", back_populates="audit_logs")
