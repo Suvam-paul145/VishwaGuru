@@ -312,6 +312,7 @@ def get_password_hash(password: str) -> str:
     ).decode("utf-8")
 
 
+
 def generate_reference_id() -> str:
     """
     Generate a unique reference ID for voice submissions.
