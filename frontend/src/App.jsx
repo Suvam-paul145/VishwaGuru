@@ -20,6 +20,7 @@ const VerifyView = React.lazy(() => import('./views/VerifyView'));
 const StatsView = React.lazy(() => import('./views/StatsView'));
 const LeaderboardView = React.lazy(() => import('./views/LeaderboardView'));
 const GrievanceView = React.lazy(() => import('./views/GrievanceView'));
+const ScorecardView = React.lazy(() => import('./views/ScorecardView'));
 const NotFound = React.lazy(() => import('./views/NotFound'));
 
 // Lazy Load Detectors
@@ -68,7 +69,7 @@ function AppContent() {
 
   // Safe navigation helper
   const navigateToView = useCallback((view) => {
-    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'noise', 'safety-check', 'my-reports', 'grievance', 'login', 'signup'];
+    const validViews = ['home', 'map', 'report', 'action', 'mh-rep', 'pothole', 'garbage', 'vandalism', 'flood', 'infrastructure', 'parking', 'streetlight', 'fire', 'animal', 'blocked', 'tree', 'pest', 'smart-scan', 'grievance-analysis', 'noise', 'safety-check', 'my-reports', 'grievance', 'login', 'signup', 'scorecard'];
     if (validViews.includes(view)) {
       navigate(view === 'home' ? '/' : `/${view}`);
     } else {
@@ -351,6 +352,7 @@ function AppContent() {
                   <GrievanceView />
                 </ProtectedRoute>
               } />
+              <Route path="/scorecard" element={<ScorecardView setView={navigateToView} />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

@@ -437,3 +437,35 @@ class SupportedLanguagesResponse(BaseModel):
     """Response model for supported languages"""
     languages: Dict[str, str] = Field(..., description="Dictionary of language code to language name")
     total_count: int = Field(..., description="Total number of supported languages")
+
+
+# Public Resolution Scorecard Schemas (Issue #286)
+
+class ScorecardEntry(BaseModel):
+    """A single department or region entry in the scorecard leaderboard."""
+    rank: int = Field(..., description="Leaderboard rank")
+    name: str = Field(..., description="Department or region name")
+    total_grievances: int = Field(..., description="Total grievances filed")
+    resolved_count: int = Field(..., description="Number resolved")
+    open_count: int = Field(0, description="Currently open")
+    escalated_count: int = Field(0, description="Escalated grievances")
+    resolution_rate: float = Field(..., description="Resolution rate percentage")
+    avg_resolution_hours: float = Field(..., description="Average resolution time in hours")
+    reopen_rate: float = Field(..., description="Escalation/reopen rate percentage")
+    score: float = Field(..., description="Normalized composite score (0-100)")
+
+
+class TrendPoint(BaseModel):
+    """A single data point in a monthly trend series."""
+    period: str = Field(..., description="Month identifier (YYYY-MM)")
+    resolution_rate: float = Field(..., description="Resolution rate for this period")
+
+
+class ScorecardResponse(BaseModel):
+    """Complete public resolution scorecard response."""
+    departments: List[ScorecardEntry] = Field(default_factory=list, description="Department leaderboard")
+    regions: List[ScorecardEntry] = Field(default_factory=list, description="Region leaderboard")
+    department_trends: Dict[str, List[TrendPoint]] = Field(default_factory=dict, description="Monthly trends by department")
+    region_trends: Dict[str, List[TrendPoint]] = Field(default_factory=dict, description="Monthly trends by region")
+    generated_at: datetime = Field(..., description="When the scorecard was generated")
+    cache_ttl_seconds: int = Field(300, description="Cache TTL in seconds")
