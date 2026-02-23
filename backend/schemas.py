@@ -438,34 +438,100 @@ class SupportedLanguagesResponse(BaseModel):
     languages: Dict[str, str] = Field(..., description="Dictionary of language code to language name")
     total_count: int = Field(..., description="Total number of supported languages")
 
+# Field Officer Check-In System Schemas (Issue #288)
 
-# Public Resolution Scorecard Schemas (Issue #286)
+class OfficerCheckInRequest(BaseModel):
+    """Request model for field officer check-in"""
+    issue_id: int = Field(..., description="ID of the issue being visited")
+    grievance_id: Optional[int] = Field(None, description="Optional grievance ID if linked")
+    officer_email: str = Field(..., description="Officer's email address")
+    officer_name: str = Field(..., min_length=2, max_length=100, description="Officer's full name")
+    officer_department: Optional[str] = Field(None, max_length=100, description="Department name")
+    officer_designation: Optional[str] = Field(None, max_length=100, description="Officer's designation")
+    check_in_latitude: float = Field(..., ge=-90, le=90, description="Check-in GPS latitude")
+    check_in_longitude: float = Field(..., ge=-180, le=180, description="Check-in GPS longitude")
+    visit_notes: Optional[str] = Field(None, max_length=1000, description="Visit notes/observations")
+    geofence_radius_meters: Optional[float] = Field(100.0, ge=10, le=1000, description="Acceptable distance from site (meters)")
 
-class ScorecardEntry(BaseModel):
-    """A single department or region entry in the scorecard leaderboard."""
-    rank: int = Field(..., description="Leaderboard rank")
-    name: str = Field(..., description="Department or region name")
-    total_grievances: int = Field(..., description="Total grievances filed")
-    resolved_count: int = Field(..., description="Number resolved")
-    open_count: int = Field(0, description="Currently open")
-    escalated_count: int = Field(0, description="Escalated grievances")
-    resolution_rate: float = Field(..., description="Resolution rate percentage")
-    avg_resolution_hours: float = Field(..., description="Average resolution time in hours")
-    reopen_rate: float = Field(..., description="Escalation/reopen rate percentage")
-    score: float = Field(..., description="Normalized composite score (0-100)")
+class OfficerCheckOutRequest(BaseModel):
+    """Request model for field officer check-out"""
+    visit_id: int = Field(..., description="ID of the visit to check out from")
+    check_out_latitude: float = Field(..., ge=-90, le=90, description="Check-out GPS latitude")
+    check_out_longitude: float = Field(..., ge=-180, le=180, description="Check-out GPS longitude")
+    visit_duration_minutes: Optional[int] = Field(None, ge=0, le=1440, description="Visit duration in minutes")
+    additional_notes: Optional[str] = Field(None, max_length=1000, description="Additional notes at check-out")
+
+class VisitImageUploadResponse(BaseModel):
+    """Response for visit image upload"""
+    visit_id: int = Field(..., description="Visit ID")
+    image_paths: List[str] = Field(..., description="Paths to uploaded images")
+    message: str = Field(..., description="Success message")
+
+class FieldOfficerVisitResponse(BaseModel):
+    """Response model for field officer visit (authenticated users)"""
+    id: int = Field(..., description="Visit ID")
+    issue_id: int = Field(..., description="Issue ID")
+    grievance_id: Optional[int] = Field(None, description="Grievance ID")
+    officer_email: str = Field(..., description="Officer email")
+    officer_name: str = Field(..., description="Officer name")
+    officer_department: Optional[str] = Field(None, description="Department")
+    officer_designation: Optional[str] = Field(None, description="Designation")
+    check_in_latitude: float = Field(..., description="Check-in latitude")
+    check_in_longitude: float = Field(..., description="Check-in longitude")
+    check_in_time: datetime = Field(..., description="Check-in timestamp")
+    check_out_time: Optional[datetime] = Field(None, description="Check-out timestamp")
+    distance_from_site: Optional[float] = Field(None, description="Distance from site in meters")
+    within_geofence: bool = Field(..., description="Whether check-in was within geofence")
+    visit_notes: Optional[str] = Field(None, description="Visit notes")
+    visit_images: Optional[List[str]] = Field(None, description="Visit image paths")
+    visit_duration_minutes: Optional[int] = Field(None, description="Visit duration")
+    status: str = Field(..., description="Visit status")
+    verified_by: Optional[str] = Field(None, description="Verified by")
+    verified_at: Optional[datetime] = Field(None, description="Verification timestamp")
+    is_public: bool = Field(..., description="Public visibility")
+    created_at: datetime = Field(..., description="Creation timestamp")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
-class TrendPoint(BaseModel):
-    """A single data point in a monthly trend series."""
-    period: str = Field(..., description="Month identifier (YYYY-MM)")
-    resolution_rate: float = Field(..., description="Resolution rate for this period")
+class PublicFieldOfficerVisitResponse(BaseModel):
+    """Public response model for field officer visit (PII removed - no officer_email)"""
+    id: int = Field(..., description="Visit ID")
+    issue_id: int = Field(..., description="Issue ID")
+    grievance_id: Optional[int] = Field(None, description="Grievance ID")
+    officer_name: str = Field(..., description="Officer name")
+    officer_department: Optional[str] = Field(None, description="Department")
+    officer_designation: Optional[str] = Field(None, description="Designation")
+    check_in_latitude: float = Field(..., description="Check-in latitude")
+    check_in_longitude: float = Field(..., description="Check-in longitude")
+    check_in_time: datetime = Field(..., description="Check-in timestamp")
+    check_out_time: Optional[datetime] = Field(None, description="Check-out timestamp")
+    distance_from_site: Optional[float] = Field(None, description="Distance from site in meters")
+    within_geofence: bool = Field(..., description="Whether check-in was within geofence")
+    visit_notes: Optional[str] = Field(None, description="Visit notes")
+    visit_images: Optional[List[str]] = Field(None, description="Visit image paths")
+    visit_duration_minutes: Optional[int] = Field(None, description="Visit duration")
+    status: str = Field(..., description="Visit status")
+    verified_by: Optional[str] = Field(None, description="Verified by")
+    verified_at: Optional[datetime] = Field(None, description="Verification timestamp")
+    is_public: bool = Field(..., description="Public visibility")
+    created_at: datetime = Field(..., description="Creation timestamp")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
-class ScorecardResponse(BaseModel):
-    """Complete public resolution scorecard response."""
-    departments: List[ScorecardEntry] = Field(default_factory=list, description="Department leaderboard")
-    regions: List[ScorecardEntry] = Field(default_factory=list, description="Region leaderboard")
-    department_trends: Dict[str, List[TrendPoint]] = Field(default_factory=dict, description="Monthly trends by department")
-    region_trends: Dict[str, List[TrendPoint]] = Field(default_factory=dict, description="Monthly trends by region")
-    generated_at: datetime = Field(..., description="When the scorecard was generated")
-    cache_ttl_seconds: int = Field(300, description="Cache TTL in seconds")
+class VisitHistoryResponse(BaseModel):
+    """Response for visit history of an issue"""
+    issue_id: int = Field(..., description="Issue ID")
+    total_visits: int = Field(..., description="Total number of visits")
+    visits: List[PublicFieldOfficerVisitResponse] = Field(..., description="List of visits (PII removed for public access)")
+
+
+class VisitStatsResponse(BaseModel):
+    """Response for visit statistics"""
+    total_visits: int = Field(..., description="Total visits")
+    verified_visits: int = Field(..., description="Verified visits")
+    within_geofence_count: int = Field(..., description="Visits within geofence")
+    outside_geofence_count: int = Field(..., description="Visits outside geofence")
+    unique_officers: int = Field(..., description="Number of unique officers")
+    average_distance_from_site: Optional[float] = Field(None, description="Average distance in meters")
