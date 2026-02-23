@@ -268,3 +268,27 @@ class FieldOfficerVisit(Base):
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
     is_public = Column(Boolean, default=True)  # Public visibility for transparency
+
+class ResolutionEvidence(Base):
+    __tablename__ = "resolution_evidence"
+    id = Column(Integer, primary_key=True, index=True)
+    grievance_id = Column(Integer, ForeignKey("grievances.id"), nullable=False)
+    file_path = Column(String, nullable=False)
+    media_type = Column(String, default="image")
+    description = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    # Relationship
+    grievance = relationship("Grievance", back_populates="resolution_evidence")
+
+class ResolutionProofToken(Base):
+    __tablename__ = "resolution_proof_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    grievance_id = Column(Integer, ForeignKey("grievances.id"), nullable=False)
+    token = Column(String, unique=True, index=True)
+    generated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    expires_at = Column(DateTime, nullable=False)
+    is_used = Column(Boolean, default=False)
+
+    # Relationship
+    grievance = relationship("Grievance", back_populates="resolution_tokens")
