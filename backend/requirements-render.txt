@@ -14,3 +14,4 @@ firebase-admin
 a2wsgi
 python-jose[cryptography]
 passlib[bcrypt]
+async_lru
