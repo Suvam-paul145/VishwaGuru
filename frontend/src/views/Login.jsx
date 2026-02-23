@@ -22,6 +22,25 @@ function Login({ initialIsLogin = true }) {
 
     const from = location.state?.from?.pathname || "/";
 
+    // Password strength calculator
+    const getPasswordStrength = (pwd) => {
+        if (!pwd) return { score: 0, label: '', color: '', width: '0%' };
+        let score = 0;
+        if (pwd.length >= 6) score++;
+        if (pwd.length >= 10) score++;
+        if (/[A-Z]/.test(pwd)) score++;
+        if (/[a-z]/.test(pwd)) score++;
+        if (/[0-9]/.test(pwd)) score++;
+        if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+        if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500', textColor: 'text-red-500', width: '25%' };
+        if (score <= 3) return { score, label: 'Fair', color: 'bg-orange-500', textColor: 'text-orange-500', width: '50%' };
+        if (score <= 4) return { score, label: 'Good', color: 'bg-yellow-500', textColor: 'text-yellow-500', width: '75%' };
+        return { score, label: 'Strong', color: 'bg-green-500', textColor: 'text-green-500', width: '100%' };
+    };
+
+    const passwordStrength = getPasswordStrength(password);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -295,7 +314,58 @@ function Login({ initialIsLogin = true }) {
                                         </button>
                                     </div>
                                 </div>
-
+                                {/* Password Strength Indicator - Signup only */}
+                                <AnimatePresence>
+                                    {!isLogin && password && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="space-y-2 -mt-2"
+                                        >
+                                            {/* Strength bar */}
+                                            <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mx-1">
+                                                <motion.div
+                                                    initial={{ width: '0%' }}
+                                                    animate={{ width: passwordStrength.width }}
+                                                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                                                    className={`h-full rounded-full ${passwordStrength.color}`}
+                                                />
+                                            </div>
+                                            {/* Strength label + criteria */}
+                                            <div className="flex justify-between items-center px-1">
+                                                <motion.span
+                                                    key={passwordStrength.label}
+                                                    initial={{ opacity: 0, y: -5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className={`text-xs font-bold ${passwordStrength.textColor}`}
+                                                >
+                                                    {passwordStrength.label}
+                                                </motion.span>
+                                                <div className="flex gap-1.5">
+                                                    {[
+                                                        { test: password.length >= 6, tip: '6+' },
+                                                        { test: /[A-Z]/.test(password), tip: 'A-Z' },
+                                                        { test: /[0-9]/.test(password), tip: '0-9' },
+                                                        { test: /[^A-Za-z0-9]/.test(password), tip: '#@!' },
+                                                    ].map(({ test, tip }) => (
+                                                        <span
+                                                            key={tip}
+                                                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-all ${
+                                                                test
+                                                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600'
+                                                            }`}
+                                                        >
+                                                            {tip}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                                 {error && (
                                     <motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
