@@ -15,3 +15,8 @@ a2wsgi
 python-jose[cryptography]
 passlib[bcrypt]
 async_lru
+SpeechRecognition
+pydub
+googletrans==4.0.2
+langdetect
+indic-nlp-library
