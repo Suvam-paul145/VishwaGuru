@@ -40,6 +40,7 @@ const SmartScanner = React.lazy(() => import('./SmartScanner'));
 const GrievanceAnalysis = React.lazy(() => import('./views/GrievanceAnalysis'));
 const NoiseDetector = React.lazy(() => import('./NoiseDetector'));
 const CivicEyeDetector = React.lazy(() => import('./CivicEyeDetector'));
+const CivicInsight = React.lazy(() => import('./views/CivicInsight'));
 const MyReportsView = React.lazy(() => import('./views/MyReportsView'));
 
 

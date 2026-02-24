@@ -103,6 +103,7 @@ const Navbar = () => {
             title: t('home.categories.management'),
             icon: <Monitor size={18} />,
             items: [
+                { id: 'insight', label: "Civic Insight", icon: <Activity size={18} />, path: '/insight' },
                 { id: 'stats', label: t('home.issues.viewStats'), icon: <Activity size={18} />, path: '/stats' },
                 { id: 'map', label: t('home.issues.responsibilityMap'), icon: <MapPin size={18} />, path: '/map' },
                 { id: 'leaderboard', label: t('home.issues.leaderboard'), icon: <Trophy size={18} />, path: '/leaderboard' },
