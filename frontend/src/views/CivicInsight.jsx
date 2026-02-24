@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 const CivicInsight = () => {
+    // eslint-disable-next-line no-unused-vars
     const { t } = useTranslation();
     const [stats, setStats] = useState({ total_issues: 0, resolved_issues: 0, pending_issues: 0 });
     const [loading, setLoading] = useState(true);
