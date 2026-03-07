@@ -72,8 +72,13 @@ class ScorecardService:
                 ).label("resolved"),
                 func.sum(
                     case(
-                        (Grievance.status == GrievanceStatus.OPEN, 1),
-                        else_=0
+                        (
+                            Grievance.status.in_(
+                                [GrievanceStatus.OPEN, GrievanceStatus.IN_PROGRESS]
+                            ),
+                            1,
+                        ),
+                        else_=0,
                     )
                 ).label("open_count"),
                 func.sum(
