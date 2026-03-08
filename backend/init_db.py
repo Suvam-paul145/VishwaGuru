@@ -10,6 +10,9 @@ backend_dir = current_file.parent
 repo_root = backend_dir.parent
 sys.path.insert(0, str(repo_root))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from backend.database import engine, Base
 from backend.models import *
 

@@ -47,7 +47,7 @@ def health():
         }
     )
 
-@router.get("/api/stats", response_model=StatsResponse)
+@router.get("/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db)):
     cached_stats = recent_issues_cache.get("stats")
     if cached_stats:
@@ -74,7 +74,7 @@ def get_stats(db: Session = Depends(get_db)):
 
     return response
 
-@router.get("/api/ml-status", response_model=MLStatusResponse)
+@router.get("/ml-status", response_model=MLStatusResponse)
 async def ml_status():
     """
     Get the status of the ML detection service.
@@ -87,7 +87,7 @@ async def ml_status():
         memory_usage=status.get("memory_usage")
     )
 
-@router.post("/api/chat", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     try:
         response = await chat_with_civic_assistant(request.query)
@@ -96,7 +96,7 @@ async def chat_endpoint(request: ChatRequest):
         logger.error(f"Chat service error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Chat service temporarily unavailable")
 
-@router.get("/api/leaderboard", response_model=LeaderboardResponse)
+@router.get("/leaderboard", response_model=LeaderboardResponse)
 def get_leaderboard(db: Session = Depends(get_db)):
     """Get top reporters leaderboard (cached)"""
     cache_key = "leaderboard"
@@ -141,7 +141,7 @@ def get_leaderboard(db: Session = Depends(get_db)):
     return response_data
 
 
-@router.get("/api/mh/rep-contacts")
+@router.get("/mh/rep-contacts")
 async def get_maharashtra_rep_contacts(pincode: str = Query(..., min_length=6, max_length=6)):
     """
     Get MLA and representative contact information for Maharashtra by pincode.
