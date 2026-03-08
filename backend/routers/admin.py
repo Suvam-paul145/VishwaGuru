@@ -23,7 +23,7 @@ def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 def get_system_stats(db: Session = Depends(get_db)):
     """
     Get system statistics.
-    Optimized: Uses a single database query with aggregations to prevent N+1 query bottlenecks.
+    Optimized: Uses a single database query with aggregations to avoid multiple aggregate round-trips.
     """
     stats = db.query(
         func.count(User.id).label("total_users"),
