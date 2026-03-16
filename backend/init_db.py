@@ -10,6 +10,9 @@ backend_dir = current_file.parent
 repo_root = backend_dir.parent
 sys.path.insert(0, str(repo_root))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from backend.database import engine, Base
 from backend.models import *
 
@@ -94,6 +97,9 @@ def migrate_db():
 
                 if not index_exists("issues", "ix_issues_user_email"):
                     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_issues_user_email ON issues (user_email)"))
+
+                if not index_exists("issues", "ix_issues_previous_integrity_hash"):
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_issues_previous_integrity_hash ON issues (previous_integrity_hash)"))
 
                 # Voice and Language Support Columns (Issue #291)
                 if not column_exists("issues", "submission_type"):
